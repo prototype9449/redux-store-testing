@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "pretty": true,
+    "skipLibCheck": true,
+    "lib": ["es2017", "dom"],
+    "types": ["reflect-metadata", "jest"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "module": "esnext",
+    "target": "es5",
+    "jsx": "react",
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "allowJs": false,
+    "resolveJsonModule": true,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./typings"
+    ]
+  },
+  "include": [
+    "./typings/*.d.ts",
+    "./src/**/*.ts",
+    "./src/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "__mocks__",
+    "lib",
+    "scripts"
+  ]
+}
