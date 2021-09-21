@@ -1,10 +1,9 @@
 import {ConnectedRouter, connectRouter, LOCATION_CHANGE, push, routerMiddleware} from 'connected-react-router';
-import {applyMiddleware, combineReducers, Store} from 'redux';
+import {applyMiddleware, combineReducers, Store, StoreEnhancer} from 'redux';
 import createSagaMiddleware, {SagaMiddlewareOptions} from 'redux-saga';
 import {all, put, spawn, take} from 'redux-saga/effects';
 import {createBrowserHistory} from 'history';
-import {createActionLogger, Listener} from '../actionLogger';
-import {dispatchAction, StoreTester, waitForAction, waitForMs, waitForPromise} from '../store-tester';
+import {dispatchAction, StoreTester, createActionLogger, ActionListener, waitForAction, waitForMs, waitForPromise} from '../';
 import {configureStore} from '@reduxjs/toolkit';
 import produce from 'immer';
 import {render} from "@testing-library/react";
@@ -56,7 +55,7 @@ type StateType = {reducerA: { status: string }}
 
 let store : EnhancedStore<StateType> ;
 
-function getStore(listener?: Listener, reset = false) {
+function getStore(listener?: ActionListener, reset = false) {
   if (store && !reset) {
     return store;
   }
@@ -71,7 +70,7 @@ function getStore(listener?: Listener, reset = false) {
 
   const history = getHistory(reset);
 
-  const enhancers = [applyMiddleware(routerMiddleware(history), sagaMiddleware)];
+  const enhancers: StoreEnhancer[] = [applyMiddleware(routerMiddleware(history), sagaMiddleware)];
   if (listener) {
     enhancers.push(createActionLogger(listener));
   }

@@ -42,8 +42,6 @@ module.exports = {
   },
 
   rules: {
-    'react-hooks/rules-of-hooks': 'error',
-    'react-hooks/exhaustive-deps': 'error',
     eqeqeq: ['error', 'allow-null'],
     'guard-for-in': 'error',
     'no-array-constructor': 'error',
