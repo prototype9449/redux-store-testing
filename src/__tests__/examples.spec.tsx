@@ -3,24 +3,32 @@ import {applyMiddleware, combineReducers, Store, StoreEnhancer} from 'redux';
 import createSagaMiddleware, {SagaMiddlewareOptions} from 'redux-saga';
 import {all, put, spawn, take} from 'redux-saga/effects';
 import {createBrowserHistory} from 'history';
-import {dispatchAction, StoreTester, createActionLogger, ActionListener, waitForAction, waitForMs, waitForPromise} from '../';
+import {
+  dispatchAction,
+  StoreTester,
+  createActionLogger,
+  ActionListener,
+  waitForAction,
+  waitForMs,
+  waitForPromise,
+} from '../';
 import {configureStore} from '@reduxjs/toolkit';
 import produce from 'immer';
-import {render} from "@testing-library/react";
-import {Provider} from "react-redux";
-import React from "react";
-import {EnhancedStore} from "@reduxjs/toolkit/src/configureStore";
+import {render} from '@testing-library/react';
+import {Provider} from 'react-redux';
+import React from 'react';
+import {EnhancedStore} from '@reduxjs/toolkit/src/configureStore';
 
 const initialState = {
-  status: 'C'
-}
+  status: 'C',
+};
 const reducerA = produce((draft, action) => {
   switch (action.type) {
     case 'A':
-      draft.status = 'A'
+      draft.status = 'A';
       return;
     case 'B':
-      draft.status = 'B'
+      draft.status = 'B';
       return;
   }
 }, initialState);
@@ -33,9 +41,8 @@ const rootReducer = history =>
 
 function* rootSaga() {
   function* mySaga() {
-    yield take('B')
-    yield put({type: 'A'})
-
+    yield take('B');
+    yield put({type: 'A'});
   }
   const sagas = [mySaga];
 
@@ -51,9 +58,9 @@ function getHistory(reset = false) {
   return history;
 }
 
-type StateType = {reducerA: { status: string }}
+type StateType = {reducerA: {status: string}};
 
-let store : EnhancedStore<StateType> ;
+let store: EnhancedStore<StateType>;
 
 function getStore(listener?: ActionListener, reset = false) {
   if (store && !reset) {
@@ -88,34 +95,37 @@ function getStore(listener?: ActionListener, reset = false) {
 }
 
 describe('tests', function () {
-  it('something',  async() => {
+  it('something', async () => {
     const initializeFunction = (store: Store) => {
       const history = getHistory(true);
       const {unmount} = render(
         <Provider store={store}>
-        <ConnectedRouter history={history} />
-      </Provider>)
+          <ConnectedRouter history={history} />
+        </Provider>
+      );
 
       return () => {
         unmount();
-      }
-    }
+      };
+    };
 
     const s = new StoreTester<StateType>({initStore: getStore, initializeFunction});
-    const { actions} = await s.run(function* () {
+    const {actions} = await s.run(function* () {
       const status = (yield dispatchAction({type: 'B'})).state.reducerA.status;
       expect(status).toBe('B');
       const {state} = yield waitForAction('A');
-      expect(state.reducerA.status).toBe('A')
+      expect(state.reducerA.status).toBe('A');
       yield waitForMs(10);
-      yield waitForPromise(new Promise<void>((res) => {
-        setTimeout(() => res(), 100);
-      }))
-      yield dispatchAction(push('ss'))
-      yield waitForAction(LOCATION_CHANGE)
+      yield waitForPromise(
+        new Promise<void>(res => {
+          setTimeout(() => res(), 100);
+        })
+      );
+      yield dispatchAction(push('ss'));
+      yield waitForAction(LOCATION_CHANGE);
     });
 
-    expect(actions.some(a => a.type === 'A')).toBeTruthy()
-    expect(actions.some(a => a.type === 'B')).toBeTruthy()
+    expect(actions.some(a => a.type === 'A')).toBeTruthy();
+    expect(actions.some(a => a.type === 'B')).toBeTruthy();
   });
 });
