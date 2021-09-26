@@ -13,6 +13,7 @@ export type StoreWaitForAction = {
 export type StoreWaitForMs = {
   type: StoreActionType.waitForMs;
   ms: number;
+  callback?: () => void;
 };
 
 export type StoreWaitForPromise = {
@@ -29,9 +30,10 @@ export enum StoreActionType {
   waitForPromise = 'waitForPromise'
 }
 
-export const waitForMs = (ms: number): StoreWaitForMs => ({
+export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => ({
   type: StoreActionType.waitForMs,
   ms,
+  callback
 });
 export const waitForPromise = <T>(promise: Promise<T>): StoreWaitForPromise => ({
   type: StoreActionType.waitForPromise,

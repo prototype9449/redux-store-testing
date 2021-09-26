@@ -1,50 +1,60 @@
 import {Action, Store} from 'redux';
-import {StoreAction, StoreActionType} from "./effects";
+import {StoreAction, StoreActionType} from './effects';
+import { waitForMsAndResolve } from './waitForMsAndResolve';
 
 type InitParams<T> = {
+  originalSetTimeout?: typeof setTimeout;
   initializeFunction?: (store: Store<T>) => () => void;
   initStore: (listener: (action: Action, state: T) => void) => Store<T>;
-};
-
-const waitForMsAndResolve = (ms: number): Promise<void> => {
-  return new Promise<void>(res => {
-    setTimeout(() => res(), ms);
-  });
+  errorTimoutMs?: number;
 };
 
 export type StoreResult<T> = {actions: Action[]; state: T; error?: string};
 
+const DEFAULT_TIMEOUT_ERROR = 3000;
+
 export class StoreTester<T> {
   private store: Store<T>;
   private loggedActions: Action[] = [];
-  private state: T | undefined = undefined;
+  private currentState: T | undefined = undefined;
   private readonly initStore;
   private readonly initializeFunction: (store: Store) => () => void;
   private waitedAction: string | undefined;
-  private promiseToWait: Promise<unknown>;
+  private promiseToWait: Promise<void>;
   private resolveWhenActionCaught: ((value?: any) => void) | undefined;
-  private isError: boolean = false;
-  private finished: boolean = false;
-  private gen: Generator<StoreAction, void, StoreResult<T>>;
+  private finished = false;
+  private generator: Generator<StoreAction, void, StoreResult<T>> | undefined;
   private nextAction: StoreAction | undefined = undefined;
   private justDispatchedActionType: string | undefined;
+  private readonly originalSetTimeout;
+  private readonly errorTimoutMs: number;
 
-  constructor({initStore, initializeFunction = () => () => void 0}: InitParams<T>) {
+  constructor({
+    initStore,
+    initializeFunction = () => () => void 0,
+    originalSetTimeout,
+    errorTimoutMs = DEFAULT_TIMEOUT_ERROR,
+  }: InitParams<T>) {
     this.initStore = initStore;
     this.initializeFunction = initializeFunction;
+    this.errorTimoutMs = errorTimoutMs;
+    this.originalSetTimeout = originalSetTimeout ?? setTimeout;
   }
 
-  listener = (action: Action, state: T) => {
+  listener = (action: Action, state: T): void => {
+    if (this.finished) {
+      return;
+    }
     const isDispatchedAction = this.justDispatchedActionType === action.type;
     if (isDispatchedAction) {
       this.justDispatchedActionType = undefined;
     }
     this.loggedActions.push(action);
-    this.state = state;
+    this.currentState = state;
 
     const processNextWaitForAction = () => {
-      if (!this.waitedAction && this.gen) {
-        const nextAction = this.gen.next({actions: [...this.loggedActions], state});
+      if (!this.waitedAction && this.generator) {
+        const nextAction = this.generator.next({actions: [...this.loggedActions], state});
         if (nextAction.done) {
           this.finished = true;
           return;
@@ -67,42 +77,26 @@ export class StoreTester<T> {
     }
   };
 
-  waitForAction = (actionType: string) => {
+  waitForAction = (actionType: string): Promise<void> => {
     this.waitedAction = actionType;
-    this.promiseToWait = new Promise<any>(res => {
+    this.promiseToWait = new Promise<void>(res => {
       this.resolveWhenActionCaught = res;
     });
     return this.promiseToWait;
   };
 
   timeOut = (): Promise<string | void> => {
-    let savedMs = 0;
-    let initialTime = performance.now();
-    let resolve: (value: string | void) => void;
-    const promise = new Promise<string | void>(res => {
-      resolve = res;
+    return new Promise<string | void>(res => {
+      this.originalSetTimeout(() => {
+        res('Timeout has expired. Caught actions: ' + this.loggedActions.map(x => x.type).join('\n'));
+      }, this.errorTimoutMs);
     });
-    const func = () => {
-      if (this.finished) {
-        resolve();
-        return;
-      }
-      if (savedMs > 3000) {
-        this.isError = true;
-        this.finished = true;
-        resolve('Timeout has expired. Caught actions: ' + this.loggedActions.map(x => x.type).join('\n'));
-      } else {
-        const currentPerf = performance.now();
-        savedMs += currentPerf - initialTime;
-        initialTime = currentPerf;
-        requestAnimationFrame(() => func());
-      }
-    };
-    func();
-    return promise;
   };
 
   main = async (): Promise<void> => {
+    if (!this.generator) {
+      return Promise.resolve();
+    }
     while (!this.finished) {
       let value: StoreAction;
       if (this.nextAction) {
@@ -114,7 +108,7 @@ export class StoreTester<T> {
           actionType: this.waitedAction,
         };
       } else {
-        const res = this.gen.next({actions: [...this.loggedActions], state: this.state!});
+        const res = this.generator.next({actions: [...this.loggedActions], state: this.currentState!});
         this.finished = res.done ? res.done : false;
         if (this.finished || !res.value) {
           break;
@@ -124,7 +118,7 @@ export class StoreTester<T> {
 
       switch (value.type) {
         case StoreActionType.waitForActionType: {
-          await this.waitForAction(value.type);
+          await this.waitForAction(value.actionType);
           this.resolveWhenActionCaught = undefined;
           break;
         }
@@ -137,8 +131,8 @@ export class StoreTester<T> {
         }
 
         case StoreActionType.waitForMs: {
-          const milliseconds = value.ms;
-          await waitForMsAndResolve(milliseconds);
+          const {ms, callback} = value;
+          await waitForMsAndResolve({ms, callback});
           break;
         }
 
@@ -151,12 +145,12 @@ export class StoreTester<T> {
     }
   };
 
-  async run(generator: () => Generator<StoreAction, void, StoreResult<T>>): Promise<StoreResult<T>> {
+  async run(createGenerator?: () => Generator<StoreAction, void, StoreResult<T>>): Promise<StoreResult<T>> {
+    this.generator = createGenerator ? createGenerator() : undefined;
     this.store = this.initStore(this.listener);
-    const destruct = this.initializeFunction(this.store);
-    this.gen = generator();
     const result: string | void = await Promise.race([this.main(), this.timeOut()]);
+    const destruct = this.initializeFunction(this.store);
     destruct();
-    return Promise.resolve({state: this.state!, actions: this.loggedActions, error: result ?? undefined});
+    return Promise.resolve({state: this.currentState!, actions: this.loggedActions, error: result ?? undefined});
   }
 }
