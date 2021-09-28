@@ -1,4 +1,5 @@
-import {Action} from "redux";
+import {Action} from 'redux';
+import {Caller} from './createFunctionCaller';
 
 export type StoreDispatchAction = {
   type: StoreActionType.dispatchAction;
@@ -21,29 +22,48 @@ export type StoreWaitForPromise = {
   promise: Promise<unknown>;
 };
 
-export type StoreAction = StoreDispatchAction | StoreWaitForAction | StoreWaitForMs | StoreWaitForPromise;
+export type StoreWaitForCaller = {
+  type: StoreActionType.waitForCall;
+  caller: Caller;
+};
+
+export type StoreAction =
+  | StoreDispatchAction
+  | StoreWaitForAction
+  | StoreWaitForMs
+  | StoreWaitForPromise
+  | StoreWaitForCaller;
 
 export enum StoreActionType {
   waitForActionType = 'waitForActionType',
   dispatchAction = 'dispatchAction',
   waitForMs = 'waitForMs',
-  waitForPromise = 'waitForPromise'
+  waitForPromise = 'waitForPromise',
+  waitForCall = 'waitForCall',
 }
 
 export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => ({
   type: StoreActionType.waitForMs,
   ms,
-  callback
+  callback,
 });
+
 export const waitForPromise = <T>(promise: Promise<T>): StoreWaitForPromise => ({
   type: StoreActionType.waitForPromise,
-  promise,});
+  promise,
+});
 
 export const waitForAction = (actionType: string): StoreWaitForAction => ({
   type: StoreActionType.waitForActionType,
   actionType,
 });
+
 export const dispatchAction = (action: Action): StoreDispatchAction => ({
   type: StoreActionType.dispatchAction,
   action,
+});
+
+export const waitForCall = (caller: Caller): StoreWaitForCaller => ({
+  type: StoreActionType.waitForCall,
+  caller,
 });

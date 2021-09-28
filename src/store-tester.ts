@@ -53,7 +53,7 @@ export class StoreTester<T> {
     this.currentState = state;
 
     const processNextWaitForAction = () => {
-      if (!this.waitedAction && this.generator) {
+      if (!this.waitedAction && !this.nextAction && this.generator) {
         const nextAction = this.generator.next({actions: [...this.loggedActions], state});
         if (nextAction.done) {
           this.finished = true;

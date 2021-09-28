@@ -1,3 +1,5 @@
+import {createFunctionCaller} from "../createFunctionCaller";
+
 const originalSetTimeout = setTimeout;
 
 import {applyMiddleware, StoreEnhancer} from 'redux';
@@ -9,11 +11,12 @@ import {
   waitForMs,
   waitForPromise,
   ActionListener,
+  waitForCall,
 } from '../';
 import {configureStore, createSlice} from '@reduxjs/toolkit';
 import createSagaMiddleware from 'redux-saga';
 import {Saga} from '@redux-saga/types';
-import {delay, put, take} from 'redux-saga/effects';
+import {call, delay, put, take} from 'redux-saga/effects';
 
 describe('store with saga and reducer', function () {
   const initialState = {
@@ -100,6 +103,23 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
+  it('should dispatch action right after put in saga', async () => {
+    const initStore = getInitStoreFunction(function* () {
+      yield take(sliceActions.inc.type);
+      yield put(sliceActions.setB());
+    });
+
+    const s = new StoreTester<InitialState>({initStore});
+    const {actions, state, error} = await s.run(function* () {
+      yield dispatchAction(sliceActions.inc());
+      yield dispatchAction(sliceActions.setA());
+    });
+
+    expect(actions).toEqual([sliceActions.inc(), sliceActions.setB(), sliceActions.setA()]);
+    expect(state.status).toBe('A');
+    expect(error).toBeUndefined();
+  });
+
   it('should catch actions until delay when saga dispatches them synchronously when initializing', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setA());
@@ -129,6 +149,29 @@ describe('store with saga and reducer', function () {
         jest.advanceTimersByTime(100);
       });
       yield dispatchAction(sliceActions.setA());
+      yield waitForAction(sliceActions.setB.type);
+    });
+    jest.useRealTimers();
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA(), sliceActions.setB()]);
+    expect(state.status).toBe('B');
+  });
+
+  it('should dispatch action before delay when waitForMs is less than delay time', async () => {
+
+    const caller = createFunctionCaller();
+    const mocked = jest.fn().mockImplementation(() => {
+      caller();
+      return "fsdf";
+    })
+    const initStore = getInitStoreFunction(function* () {
+      yield call(mocked, "fsdf");
+    });
+    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const {actions, state, error} = await s.run(function* () {
+      yield dispatchAction(sliceActions.setA());
+      yield waitForCall(caller)
       yield waitForAction(sliceActions.setB.type);
     });
 
