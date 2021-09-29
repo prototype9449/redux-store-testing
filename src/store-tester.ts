@@ -1,6 +1,7 @@
 import {Action, Store} from 'redux';
-import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller, StoreWaitForCondition} from './effects';
+import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller, StoreWaitForStateChange} from './effects';
 import {waitForMsAndResolve} from './waitForMsAndResolve';
+import {waitForExternalCondition} from "./waitForExternalCondition";
 
 type InitParams<T> = {
   originalSetTimeout?: typeof setTimeout;
@@ -29,6 +30,7 @@ export class StoreTester<T> {
   private readonly originalSetTimeout;
   private readonly errorTimoutMs: number;
   private promiseToWaitForCall: Promise<void> | undefined;
+  private waitingForExternalPromise: boolean = false;
 
   constructor({
     initStore,
@@ -50,7 +52,7 @@ export class StoreTester<T> {
     this.loggedActions.push(action);
     this.currentState = state;
 
-    if (this.promiseToWaitForCall) {
+    if (this.promiseToWaitForCall || this.waitingForExternalPromise) {
       return;
     }
 
@@ -70,7 +72,7 @@ export class StoreTester<T> {
       }
     }
 
-    if(this.nextAction?.type === StoreActionType.waitForCondition && this.nextAction.condition(state, this.loggedActions)) {
+    if(this.nextAction?.type === StoreActionType.waitForStateChange && this.nextAction.condition(state, this.loggedActions)) {
       this.nextAction = this.processNextWaitForAction(this.generator!);
       if (this.resolveWhenConditionMet) {
         this.resolveWhenConditionMet();
@@ -96,7 +98,7 @@ export class StoreTester<T> {
     });
   };
 
-  waitForCondition = (action: StoreWaitForCondition<T>): Promise<void> => {
+  waitForCondition = (action: StoreWaitForStateChange<T>): Promise<void> => {
     this.nextAction = action;
     return new Promise<void>(res => {
       this.resolveWhenConditionMet = res;
@@ -156,7 +158,7 @@ export class StoreTester<T> {
           break;
         }
 
-        case StoreActionType.waitForCondition: {
+        case StoreActionType.waitForStateChange: {
           await this.waitForCondition(storeAction);
           this.resolveWhenConditionMet = undefined;
           break;
@@ -171,13 +173,24 @@ export class StoreTester<T> {
 
         case StoreActionType.waitForMs: {
           const {ms, callback} = storeAction;
+          this.waitingForExternalPromise = true;
           await waitForMsAndResolve({ms, callback});
+          this.waitingForExternalPromise = false;
           break;
         }
 
         case StoreActionType.waitForPromise: {
-          const promise = storeAction.promise;
-          await promise;
+          this.waitingForExternalPromise = true;
+          await storeAction.promise;// todo return result?
+          this.waitingForExternalPromise = false;
+          break;
+        }
+
+        case StoreActionType.waitFor: {
+          const {condition, options} = storeAction;
+          this.waitingForExternalPromise = true;
+          await waitForExternalCondition({condition, options});
+          this.waitingForExternalPromise = false;
           break;
         }
 

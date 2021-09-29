@@ -11,7 +11,7 @@ import {
   waitForMs,
   waitForPromise,
   ActionListener,
-  waitForCall, waitForCondition,
+  waitForCall, waitForStateChange, waitFor,
 } from '../';
 import {configureStore, createSlice} from '@reduxjs/toolkit';
 import createSagaMiddleware from 'redux-saga';
@@ -305,14 +305,14 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('B');
   });
 
-  it('should wait condition in state', async () => {
+  it('should wait for condition in state', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setA());
       yield put(sliceActions.setB());
     });
     const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
     const {actions, state, error} = await s.run(function* () {
-      const {state, actions} = yield waitForCondition((state) => state.status === 'B');
+      const {state, actions} = yield waitForStateChange((state) => state.status === 'B');
       expect(state.status).toBe('B');
       expect(actions).toEqual([sliceActions.setA(),sliceActions.setB()]);
       yield dispatchAction(sliceActions.inc());
@@ -320,6 +320,27 @@ describe('store with saga and reducer', function () {
 
     expect(error).toBeUndefined();
     expect(actions).toEqual([sliceActions.setA(), sliceActions.setB(), sliceActions.inc()]);
+    expect(state.status).toBe('B');
+  });
+
+  it('should wait for condition', async () => {
+    let variable = 'example'
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.setA());
+      variable = 'hello'
+      yield put(sliceActions.setB());
+    });
+    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const {actions, state, error} = await s.run(function* () {
+      const {state, actions} = yield waitFor(() => variable === 'hello');
+
+      expect(variable).toBe('hello');
+      expect(state.status).toBe('B');
+      expect(actions).toEqual([sliceActions.setA(),sliceActions.setB()]);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA(), sliceActions.setB()]);
     expect(state.status).toBe('B');
   });
 });
