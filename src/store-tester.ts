@@ -1,12 +1,16 @@
 import {Action, Store} from 'redux';
-import {StoreAction, StoreActionType} from './effects';
-import { waitForMsAndResolve } from './waitForMsAndResolve';
+import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller} from './effects';
+import {waitForMsAndResolve} from './waitForMsAndResolve';
 
 type InitParams<T> = {
   originalSetTimeout?: typeof setTimeout;
   initializeFunction?: (store: Store<T>) => () => void;
   initStore: (listener: (action: Action, state: T) => void) => Store<T>;
   errorTimoutMs?: number;
+};
+
+const isWaitForAction = (action?: StoreAction): action is StoreWaitForAction => {
+  return action ? action.type === StoreActionType.waitForActionType : false;
 };
 
 export type StoreResult<T> = {actions: Action[]; state: T; error?: string};
@@ -19,15 +23,15 @@ export class StoreTester<T> {
   private currentState: T | undefined = undefined;
   private readonly initStore;
   private readonly initializeFunction: (store: Store) => () => void;
-  private waitedAction: string | undefined;
   private promiseToWait: Promise<void>;
   private resolveWhenActionCaught: ((value?: any) => void) | undefined;
   private finished = false;
   private generator: Generator<StoreAction, void, StoreResult<T>> | undefined;
   private nextAction: StoreAction | undefined = undefined;
-  private justDispatchedActionType: string | undefined;
+  private justDispatchedAction: Action | undefined;
   private readonly originalSetTimeout;
   private readonly errorTimoutMs: number;
+  private promiseToWaitForCall: Promise<void> | undefined;
 
   constructor({
     initStore,
@@ -45,50 +49,71 @@ export class StoreTester<T> {
     if (this.finished) {
       return;
     }
-    const isDispatchedAction = this.justDispatchedActionType === action.type;
-    if (isDispatchedAction) {
-      this.justDispatchedActionType = undefined;
-    }
+
     this.loggedActions.push(action);
     this.currentState = state;
 
-    const processNextWaitForAction = () => {
-      if (!this.waitedAction && !this.nextAction && this.generator) {
-        const nextAction = this.generator.next({actions: [...this.loggedActions], state});
-        if (nextAction.done) {
-          this.finished = true;
-          return;
-        }
-        if (nextAction.value.type === StoreActionType.waitForActionType) {
-          this.waitedAction = nextAction.value.actionType;
-        } else {
-          this.nextAction = nextAction.value;
-        }
-      }
-    };
-    processNextWaitForAction();
+    if (this.promiseToWaitForCall) {
+      return;
+    }
 
-    if (!isDispatchedAction && this.waitedAction && action.type === this.waitedAction) {
-      this.waitedAction = undefined;
-      processNextWaitForAction();
+    const isJustDispatchedAction = this.justDispatchedAction === action;
+    if (isJustDispatchedAction) {
+      this.justDispatchedAction = undefined;
+    }
+
+    if (!this.nextAction && this.generator) {
+      this.nextAction = this.processNextWaitForAction(this.generator);
+    }
+
+    if (!isJustDispatchedAction && isWaitForAction(this.nextAction) && action.type === this.nextAction.actionType) {
+      this.nextAction = this.processNextWaitForAction(this.generator!);
       if (this.resolveWhenActionCaught) {
         this.resolveWhenActionCaught();
       }
     }
   };
 
-  waitForAction = (actionType: string): Promise<void> => {
-    this.waitedAction = actionType;
+  private processNextWaitForAction = (
+    generator: Generator<StoreAction, void, StoreResult<T>>
+  ): StoreAction | undefined => {
+    const nextAction = generator.next({actions: [...this.loggedActions], state: this.currentState!});
+    if (nextAction.done) {
+      this.finished = true;
+      return;
+    }
+    return nextAction.value;
+  };
+
+  waitForAction = (action: StoreWaitForAction): Promise<void> => {
+    this.nextAction = action;
     this.promiseToWait = new Promise<void>(res => {
       this.resolveWhenActionCaught = res;
     });
     return this.promiseToWait;
   };
 
+  private async waitForCall(action: StoreWaitForCaller, deep = 0) {
+    this.promiseToWaitForCall = new Promise<void>(res => {
+      action.caller.subscribeOnCall(async () => {
+        const nextAction = this.processNextWaitForAction(this.generator!);
+        if (nextAction?.type === StoreActionType.waitForCall) { //continue to wait for next caller
+          await this.waitForCall(nextAction, deep + 1);
+        } else {
+          this.nextAction = nextAction;
+        }
+        this.promiseToWaitForCall = undefined; // should clear promise to make listener handle the next action
+        res();
+      });
+    });
+
+    return this.promiseToWaitForCall;
+  }
+
   timeOut = (): Promise<string | void> => {
     return new Promise<string | void>(res => {
       this.originalSetTimeout(() => {
-        res('Timeout has expired. Caught actions: ' + this.loggedActions.map(x => x.type).join('\n'));
+        res('Timeout has expired. Caught actions: \n' + this.loggedActions.map(x => x.type).join('\n'));
       }, this.errorTimoutMs);
     });
   };
@@ -98,47 +123,50 @@ export class StoreTester<T> {
       return Promise.resolve();
     }
     while (!this.finished) {
-      let value: StoreAction;
+      let storeAction: StoreAction;
+      if (this.promiseToWaitForCall) {
+        await this.promiseToWaitForCall;
+      }
       if (this.nextAction) {
-        value = this.nextAction;
+        storeAction = this.nextAction;
         this.nextAction = undefined;
-      } else if (this.waitedAction) {
-        value = {
-          type: StoreActionType.waitForActionType,
-          actionType: this.waitedAction,
-        };
       } else {
-        const res = this.generator.next({actions: [...this.loggedActions], state: this.currentState!});
-        this.finished = res.done ? res.done : false;
-        if (this.finished || !res.value) {
+        const {done, value: nextStoreAction} = this.generator.next({actions: [...this.loggedActions], state: this.currentState!});
+        this.finished = !!done;
+        if (this.finished || !nextStoreAction) {
           break;
         }
-        value = res.value;
+        storeAction = nextStoreAction;
       }
 
-      switch (value.type) {
+      switch (storeAction.type) {
         case StoreActionType.waitForActionType: {
-          await this.waitForAction(value.actionType);
+          await this.waitForAction(storeAction);
           this.resolveWhenActionCaught = undefined;
           break;
         }
 
         case StoreActionType.dispatchAction: {
-          const action = value.action;
-          this.justDispatchedActionType = action.type;
+          const action = storeAction.action;
+          this.justDispatchedAction = action;
           this.store.dispatch(action);
           break;
         }
 
         case StoreActionType.waitForMs: {
-          const {ms, callback} = value;
+          const {ms, callback} = storeAction;
           await waitForMsAndResolve({ms, callback});
           break;
         }
 
         case StoreActionType.waitForPromise: {
-          const promise = value.promise;
+          const promise = storeAction.promise;
           await promise;
+          break;
+        }
+
+        case StoreActionType.waitForCall: {
+          await this.waitForCall(storeAction);
           break;
         }
       }
@@ -147,6 +175,14 @@ export class StoreTester<T> {
 
   async run(createGenerator?: () => Generator<StoreAction, void, StoreResult<T>>): Promise<StoreResult<T>> {
     this.generator = createGenerator ? createGenerator() : undefined;
+    if (this.generator) {
+      const nextAction = this.processNextWaitForAction(this.generator);
+      if (nextAction?.type === StoreActionType.waitForCall) {
+        this.waitForCall(nextAction); // need to subscribe on caller before store initialization begin
+      } else {
+        this.nextAction = nextAction;
+      }
+    }
     this.store = this.initStore(this.listener);
     const result: string | void = await Promise.race([this.main(), this.timeOut()]);
     const destruct = this.initializeFunction(this.store);

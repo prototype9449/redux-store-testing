@@ -133,4 +133,14 @@ describe('store with simple reducer', function () {
     expect(error).not.toBeUndefined();
     expect(error).toMatchSnapshot();
   });
-});
+
+  it('should not catch action dispatched by store tester', async () => {
+    const s = new StoreTester<InitialState>({initStore, errorTimoutMs: 100});
+    const {error} = await s.run(function* () {
+      yield dispatchAction(sliceActions.setA())
+      yield waitForAction(sliceActions.setA.type);
+    });
+
+    expect(error).toBeDefined();
+  });
+})

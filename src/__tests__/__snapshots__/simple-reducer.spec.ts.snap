@@ -1,7 +1,16 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`store with simple reducer should fail with timeout when waiting for dispatched action 1`] = `"Timeout has expired. Caught actions: default/setA"`;
+exports[`store with simple reducer should fail with timeout when waiting for dispatched action 1`] = `
+"Timeout has expired. Caught actions: 
+default/setA"
+`;
 
-exports[`store with simple reducer should fail with timeout when waiting for dispatched action after waiting promise 1`] = `"Timeout has expired. Caught actions: default/setA"`;
+exports[`store with simple reducer should fail with timeout when waiting for dispatched action after waiting promise 1`] = `
+"Timeout has expired. Caught actions: 
+default/setA"
+`;
 
-exports[`store with simple reducer should fail with timeout when waiting for dispatched action after waiting several ms 1`] = `"Timeout has expired. Caught actions: default/setA"`;
+exports[`store with simple reducer should fail with timeout when waiting for dispatched action after waiting several ms 1`] = `
+"Timeout has expired. Caught actions: 
+default/setA"
+`;
