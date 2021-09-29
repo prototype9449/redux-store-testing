@@ -27,10 +27,18 @@ export type StoreWaitForCaller = {
   caller: Caller;
 };
 
-export type StoreWaitForCondition<T> = {
-  type: StoreActionType.waitForCondition;
-  condition: Condition<T>;
+export type StoreWaitForStateChange<T> = {
+  type: StoreActionType.waitForStateChange;
+  condition: StateCondition<T>;
 };
+
+export type StoreWaitFor = {
+  type: StoreActionType.waitFor;
+  condition: ExternalCondition;
+  options: {intervalMs: number}
+};
+
+
 
 export type StoreAction<T> =
   | StoreDispatchAction
@@ -38,7 +46,8 @@ export type StoreAction<T> =
   | StoreWaitForMs
   | StoreWaitForPromise
   | StoreWaitForCaller
-  | StoreWaitForCondition<T>;
+  | StoreWaitFor
+  | StoreWaitForStateChange<T>;
 
 export enum StoreActionType {
   waitForActionType = 'waitForActionType',
@@ -46,10 +55,12 @@ export enum StoreActionType {
   waitForMs = 'waitForMs',
   waitForPromise = 'waitForPromise',
   waitForCall = 'waitForCall',
-  waitForCondition = 'waitForCondition',
+  waitForStateChange = 'waitForStateChange',
+  waitFor = 'waitFor'
 }
 
-type Condition<T> = (state: T, actions: Action[]) => boolean;
+type StateCondition<T> = (state: T, actions: Action[]) => boolean;
+export type ExternalCondition = () => boolean;
 
 export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => ({
   type: StoreActionType.waitForMs,
@@ -77,7 +88,13 @@ export const waitForCall = (caller: Caller): StoreWaitForCaller => ({
   caller,
 });
 
-export const waitForCondition = <T>(condition: Condition<T>): StoreWaitForCondition<T> => ({
-  type: StoreActionType.waitForCondition,
+export const waitForStateChange = <T>(condition: StateCondition<T>): StoreWaitForStateChange<T> => ({
+  type: StoreActionType.waitForStateChange,
   condition,
+});
+
+export const waitFor = (condition: ExternalCondition, options: {intervalMs: number} = {intervalMs: 50}): StoreWaitFor => ({
+  type: StoreActionType.waitFor,
+  condition,
+  options
 });
