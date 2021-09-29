@@ -11,7 +11,7 @@ import {
   waitForMs,
   waitForPromise,
   ActionListener,
-  waitForCall,
+  waitForCall, waitForCondition,
 } from '../';
 import {configureStore, createSlice} from '@reduxjs/toolkit';
 import createSagaMiddleware from 'redux-saga';
@@ -297,6 +297,24 @@ describe('store with saga and reducer', function () {
     const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
     const {actions, state, error} = await s.run(function* () {
       yield waitForAction(sliceActions.setA.type);
+      yield dispatchAction(sliceActions.inc());
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA(), sliceActions.setB(), sliceActions.inc()]);
+    expect(state.status).toBe('B');
+  });
+
+  it('should wait condition in state', async () => {
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.setA());
+      yield put(sliceActions.setB());
+    });
+    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const {actions, state, error} = await s.run(function* () {
+      const {state, actions} = yield waitForCondition((state) => state.status === 'B');
+      expect(state.status).toBe('B');
+      expect(actions).toEqual([sliceActions.setA(),sliceActions.setB()]);
       yield dispatchAction(sliceActions.inc());
     });
 

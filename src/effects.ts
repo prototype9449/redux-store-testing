@@ -27,12 +27,18 @@ export type StoreWaitForCaller = {
   caller: Caller;
 };
 
-export type StoreAction =
+export type StoreWaitForCondition<T> = {
+  type: StoreActionType.waitForCondition;
+  condition: Condition<T>;
+};
+
+export type StoreAction<T> =
   | StoreDispatchAction
   | StoreWaitForAction
   | StoreWaitForMs
   | StoreWaitForPromise
-  | StoreWaitForCaller;
+  | StoreWaitForCaller
+  | StoreWaitForCondition<T>;
 
 export enum StoreActionType {
   waitForActionType = 'waitForActionType',
@@ -40,7 +46,10 @@ export enum StoreActionType {
   waitForMs = 'waitForMs',
   waitForPromise = 'waitForPromise',
   waitForCall = 'waitForCall',
+  waitForCondition = 'waitForCondition',
 }
+
+type Condition<T> = (state: T, actions: Action[]) => boolean;
 
 export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => ({
   type: StoreActionType.waitForMs,
@@ -66,4 +75,9 @@ export const dispatchAction = (action: Action): StoreDispatchAction => ({
 export const waitForCall = (caller: Caller): StoreWaitForCaller => ({
   type: StoreActionType.waitForCall,
   caller,
+});
+
+export const waitForCondition = <T>(condition: Condition<T>): StoreWaitForCondition<T> => ({
+  type: StoreActionType.waitForCondition,
+  condition,
 });

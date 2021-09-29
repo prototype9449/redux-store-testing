@@ -1,5 +1,5 @@
 import {Action, Store} from 'redux';
-import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller} from './effects';
+import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller, StoreWaitForCondition} from './effects';
 import {waitForMsAndResolve} from './waitForMsAndResolve';
 
 type InitParams<T> = {
@@ -7,10 +7,6 @@ type InitParams<T> = {
   initializeFunction?: (store: Store<T>) => () => void;
   initStore: (listener: (action: Action, state: T) => void) => Store<T>;
   errorTimoutMs?: number;
-};
-
-const isWaitForAction = (action?: StoreAction): action is StoreWaitForAction => {
-  return action ? action.type === StoreActionType.waitForActionType : false;
 };
 
 export type StoreResult<T> = {actions: Action[]; state: T; error?: string};
@@ -23,11 +19,12 @@ export class StoreTester<T> {
   private currentState: T | undefined = undefined;
   private readonly initStore;
   private readonly initializeFunction: (store: Store) => () => void;
-  private promiseToWait: Promise<void>;
-  private resolveWhenActionCaught: ((value?: any) => void) | undefined;
+  private resolveWhenActionCaught: (() => void) | undefined;
+  private resolveWhenConditionMet: (() => void) | undefined;
+
   private finished = false;
-  private generator: Generator<StoreAction, void, StoreResult<T>> | undefined;
-  private nextAction: StoreAction | undefined = undefined;
+  private generator: Generator<StoreAction<T>, void, StoreResult<T>> | undefined;
+  private nextAction: StoreAction<T> | undefined = undefined;
   private justDispatchedAction: Action | undefined;
   private readonly originalSetTimeout;
   private readonly errorTimoutMs: number;
@@ -66,17 +63,24 @@ export class StoreTester<T> {
       this.nextAction = this.processNextWaitForAction(this.generator);
     }
 
-    if (!isJustDispatchedAction && isWaitForAction(this.nextAction) && action.type === this.nextAction.actionType) {
+    if (!isJustDispatchedAction && this.nextAction?.type === StoreActionType.waitForActionType && action.type === this.nextAction.actionType) {
       this.nextAction = this.processNextWaitForAction(this.generator!);
       if (this.resolveWhenActionCaught) {
         this.resolveWhenActionCaught();
       }
     }
+
+    if(this.nextAction?.type === StoreActionType.waitForCondition && this.nextAction.condition(state, this.loggedActions)) {
+      this.nextAction = this.processNextWaitForAction(this.generator!);
+      if (this.resolveWhenConditionMet) {
+        this.resolveWhenConditionMet();
+      }
+    }
   };
 
   private processNextWaitForAction = (
-    generator: Generator<StoreAction, void, StoreResult<T>>
-  ): StoreAction | undefined => {
+    generator: Generator<StoreAction<T>, void, StoreResult<T>>
+  ): StoreAction<T> | undefined => {
     const nextAction = generator.next({actions: [...this.loggedActions], state: this.currentState!});
     if (nextAction.done) {
       this.finished = true;
@@ -87,10 +91,16 @@ export class StoreTester<T> {
 
   waitForAction = (action: StoreWaitForAction): Promise<void> => {
     this.nextAction = action;
-    this.promiseToWait = new Promise<void>(res => {
+    return new Promise<void>(res => {
       this.resolveWhenActionCaught = res;
     });
-    return this.promiseToWait;
+  };
+
+  waitForCondition = (action: StoreWaitForCondition<T>): Promise<void> => {
+    this.nextAction = action;
+    return new Promise<void>(res => {
+      this.resolveWhenConditionMet = res;
+    });
   };
 
   private async waitForCall(action: StoreWaitForCaller, deep = 0) {
@@ -123,7 +133,7 @@ export class StoreTester<T> {
       return Promise.resolve();
     }
     while (!this.finished) {
-      let storeAction: StoreAction;
+      let storeAction: StoreAction<T>;
       if (this.promiseToWaitForCall) {
         await this.promiseToWaitForCall;
       }
@@ -143,6 +153,12 @@ export class StoreTester<T> {
         case StoreActionType.waitForActionType: {
           await this.waitForAction(storeAction);
           this.resolveWhenActionCaught = undefined;
+          break;
+        }
+
+        case StoreActionType.waitForCondition: {
+          await this.waitForCondition(storeAction);
+          this.resolveWhenConditionMet = undefined;
           break;
         }
 
@@ -173,7 +189,7 @@ export class StoreTester<T> {
     }
   };
 
-  async run(createGenerator?: () => Generator<StoreAction, void, StoreResult<T>>): Promise<StoreResult<T>> {
+  async run(createGenerator?: () => Generator<StoreAction<T>, void, StoreResult<T>>): Promise<StoreResult<T>> {
     this.generator = createGenerator ? createGenerator() : undefined;
     if (this.generator) {
       const nextAction = this.processNextWaitForAction(this.generator);
