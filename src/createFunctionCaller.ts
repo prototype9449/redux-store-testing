@@ -6,14 +6,19 @@ export type Caller = {
 
 export const createFunctionCaller = (): Caller => {
   let wasCalled = false;
-  const listeners: (() => void)[] = [];
+  let listeners: (() => void)[] = [];
+  let canSubscribe = true;
 
   const result = () => {
     wasCalled = true;
     listeners.forEach((l) => l());
+    listeners = [];
+    canSubscribe = false;
   };
   result.subscribeOnCall = (listener: () => void): void => {
-    listeners.push(listener);
+    if(canSubscribe) {
+      listeners.push(listener);
+    }
   }
   result.wasCalled = (): boolean => wasCalled;
 

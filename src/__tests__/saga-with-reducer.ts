@@ -1,4 +1,4 @@
-import {createFunctionCaller} from "../createFunctionCaller";
+import {createFunctionCaller} from '../createFunctionCaller';
 
 const originalSetTimeout = setTimeout;
 
@@ -136,6 +136,22 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
+  it('should not catch action, which is dispatched in test generator after delay', async () => {
+    const initStore = getInitStoreFunction(function* () {
+      yield delay(100);
+    });
+    const s = new StoreTester<InitialState>({initStore});
+    const {actions, state, error} = await s.run(function* () {
+      yield dispatchAction(sliceActions.setA());
+      yield waitForAction(sliceActions.setA.type);
+      yield dispatchAction(sliceActions.setB());
+    });
+
+    expect(error).toBeDefined();
+    expect(actions).toEqual([sliceActions.setA()]);
+    expect(state.status).toBe('A');
+  });
+
   it('should dispatch action before delay when waitForMs is less than delay time', async () => {
     jest.useFakeTimers();
 
@@ -158,25 +174,134 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('B');
   });
 
-  it('should dispatch action before delay when waitForMs is less than delay time', async () => {
-
+  it('should wait for call', async () => {
     const caller = createFunctionCaller();
     const mocked = jest.fn().mockImplementation(() => {
       caller();
-      return "fsdf";
-    })
+      return 'fsdf';
+    });
     const initStore = getInitStoreFunction(function* () {
-      yield call(mocked, "fsdf");
+      yield delay(1);
+      yield call(mocked, 'fsdf');
+      yield put(sliceActions.setA());
     });
     const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
     const {actions, state, error} = await s.run(function* () {
-      yield dispatchAction(sliceActions.setA());
-      yield waitForCall(caller)
-      yield waitForAction(sliceActions.setB.type);
+      yield waitForCall(caller);
+      yield waitForAction(sliceActions.setA.type);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA()]);
+    expect(state.status).toBe('A');
+  });
+
+  it('should wait for call if it is called on initialization', async () => {
+    const caller = createFunctionCaller();
+    const mocked = jest.fn().mockImplementation(() => {
+      caller();
+      return 'fsdf';
+    });
+    const initStore = getInitStoreFunction(function* () {
+      yield call(mocked, 'fsdf');
+      yield put(sliceActions.setA());
+    });
+    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const {actions, state, error} = await s.run(function* () {
+      yield waitForCall(caller);
+      yield waitForAction(sliceActions.setA.type);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA()]);
+    expect(state.status).toBe('A');
+  });
+
+  it('should wait for 2 callers in sequence if they are called on initialization', async () => {
+    const caller1 = createFunctionCaller();
+    const caller2 = createFunctionCaller();
+    const mocked = jest.fn().mockImplementation(() => {
+      caller1();
+      caller2();
+      return 'fsdf';
+    });
+    const initStore = getInitStoreFunction(function* () {
+      yield call(mocked, 'fsdf');
+      yield put(sliceActions.setA());
+    });
+    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const {actions, state, error} = await s.run(function* () {
+      yield waitForCall(caller1);
+      yield waitForCall(caller2);
+      yield waitForAction(sliceActions.setA.type);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA()]);
+    expect(state.status).toBe('A');
+  });
+
+  it('should wait for 2 callers in sequence if they are called after delay', async () => {
+    const caller1 = createFunctionCaller();
+    const caller2 = createFunctionCaller();
+    const mocked = jest.fn().mockImplementation(() => {
+      caller1();
+      caller2();
+      return 'fsdf';
+    });
+    const initStore = getInitStoreFunction(function* () {
+      yield delay(1);
+      yield call(mocked, 'fsdf');
+      yield put(sliceActions.setA());
+    });
+    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const {actions, state, error} = await s.run(function* () {
+      yield waitForCall(caller1);
+      yield waitForCall(caller2);
+      yield waitForAction(sliceActions.setA.type);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA()]);
+    expect(state.status).toBe('A');
+  });
+
+
+  it('should wait for call and dispatched by store tester async action should come after all dispatched actions in saga', async () => {
+    const caller = createFunctionCaller();
+    const mocked = jest.fn().mockImplementation(() => {
+      caller();
+      return 'fsdf';
+    });
+    const initStore = getInitStoreFunction(function* () {
+      yield delay(1);
+      yield call(mocked, 'fsdf');
+      yield put(sliceActions.setA());
+    });
+    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const {actions, state, error} = await s.run(function* () {
+      yield waitForCall(caller);
+      yield dispatchAction(sliceActions.setB());
     });
 
     expect(error).toBeUndefined();
     expect(actions).toEqual([sliceActions.setA(), sliceActions.setB()]);
+    expect(state.status).toBe('B');
+  });
+
+  it('should wait for action and dispatched by store tester async action should come after all dispatched actions in saga', async () => {
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.setA());
+      yield put(sliceActions.setB());
+    });
+    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const {actions, state, error} = await s.run(function* () {
+      yield waitForAction(sliceActions.setA.type);
+      yield dispatchAction(sliceActions.inc());
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA(), sliceActions.setB(), sliceActions.inc()]);
     expect(state.status).toBe('B');
   });
 });
