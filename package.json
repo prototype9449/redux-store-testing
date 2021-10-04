@@ -18,6 +18,7 @@
   "module": "esm/index.js",
   "sideEffects": false,
   "scripts": {
+    "prepack": "npm run build",
     "build": "npm run clean && npm run build-js && npm run build-esm",
     "build-js": "npm run compile-js && npm run create-types-js && rimraf lib/**/__tests__",
     "build-esm": "npm run compile-esm && npm run create-types-esm && rimraf esm/**/__tests__",
