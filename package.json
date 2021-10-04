@@ -9,15 +9,25 @@
   "license": "MIT",
   "author": "Sergey Popov <prototype944953@gmail.com>",
   "homepage": "https://github.com/prototype9449/redux-store-testing#readme",
-  "files": [],
+  "files": ["esm", "lib"],
   "bugs": {
     "url": "https://github.com/prototype9449/redux-store-testing/issues"
   },
   "main": "lib/index.js",
-  "typings": "index.d.ts",
+  "typings": "lib/index.d.ts",
   "module": "esm/index.js",
   "sideEffects": false,
-  "scripts": {},
+  "scripts": {
+    "build": "npm run clean && npm run build-js && npm run build-esm",
+    "build-js": "npm run compile-js && npm run create-types-js && rimraf lib/**/__tests__",
+    "build-esm": "npm run compile-esm && npm run create-types-esm && rimraf esm/**/__tests__",
+    "compile-js": "cross-env BABEL_ENV=commonjs babel src --extensions .ts,.js -d lib/ src/ --ignore ./**/*/__tests__",
+    "compile-esm": "cross-env BABEL_ENV=esm babel src --extensions .ts,.js -d esm/ src/ --ignore ./**/*/__tests__",
+    "create-types-js": "tsc -outDir lib",
+    "create-types-esm": "tsc -outDir esm",
+    "clean": "rimraf esm && rimraf lib",
+    "type-check": "tsc --noEmit"
+  },
   "keywords": [
     "redux",
     "saga",
