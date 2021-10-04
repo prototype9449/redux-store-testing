@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
-    "noEmit": true,
     "pretty": true,
     "skipLibCheck": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
     "lib": ["es2017", "dom"],
-    "types": ["reflect-metadata", "jest"],
+    "types": ["jest"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "module": "esnext",
@@ -26,9 +27,7 @@
     ]
   },
   "include": [
-    "./typings/*.d.ts",
     "./src/**/*.ts",
-    "./src/**/*.tsx"
   ],
   "exclude": [
     "node_modules",

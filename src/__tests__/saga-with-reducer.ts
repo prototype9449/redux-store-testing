@@ -11,7 +11,7 @@ import {
   waitForMs,
   waitForPromise,
   ActionListener,
-  waitForCall, waitForStateChange, waitFor,
+  waitForCall, waitForStateChange, waitFor, testStore,
 } from '../';
 import {configureStore, createSlice} from '@reduxjs/toolkit';
 import createSagaMiddleware from 'redux-saga';
@@ -159,7 +159,7 @@ describe('store with saga and reducer', function () {
       yield delay(100);
       yield put(sliceActions.setB());
     });
-    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const s = new StoreTester<InitialState>({initStore});
     const {actions, state, error} = await s.run(function* () {
       yield waitForMs(9, () => {
         jest.advanceTimersByTime(100);
@@ -323,15 +323,14 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('B');
   });
 
-  it('should wait for condition', async () => {
+  it('should wait for condition on external variable', async () => {
     let variable = 'example'
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setA());
       variable = 'hello'
       yield put(sliceActions.setB());
     });
-    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await testStore<InitialState>({initStore}, function* () {
       const {state, actions} = yield waitFor(() => variable === 'hello');
 
       expect(variable).toBe('hello');
