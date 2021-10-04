@@ -9,7 +9,10 @@
   "license": "MIT",
   "author": "Sergey Popov <prototype944953@gmail.com>",
   "homepage": "https://github.com/prototype9449/redux-store-testing#readme",
-  "files": ["esm", "lib"],
+  "files": [
+    "esm",
+    "lib"
+  ],
   "bugs": {
     "url": "https://github.com/prototype9449/redux-store-testing/issues"
   },
@@ -38,7 +41,9 @@
     "tdd",
     "bdd"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "redux": ">=4.0.0"
+  },
   "peerDependencies": {},
   "devDependencies": {
     "@babel/cli": "^7.15.4",
@@ -98,10 +103,6 @@
     "history": "^4.10.1",
     "husky": "^7.0.2",
     "immer": "^9.0.6",
-    "import-sort-cli": "^6.0.0",
-    "import-sort-parser-babylon": "^6.0.0",
-    "import-sort-parser-typescript": "^6.0.0",
-    "import-sort-style-module": "^6.0.0",
     "jest": "^27.1.0",
     "jest-environment-jsdom": "^27.2.0",
     "lint-staged": "^11.1.2",
@@ -110,7 +111,6 @@
     "react-dom": "^17.0.2",
     "react-redux": "^7.2.4",
     "react-router": "^5.2.1",
-    "redux": "^4.1.1",
     "redux-action-types-creator": "^1.2.0",
     "redux-mock-store": "^1.5.4",
     "redux-saga": "^1.1.3",
