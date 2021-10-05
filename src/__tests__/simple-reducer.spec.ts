@@ -6,9 +6,10 @@ import {
   waitForAction,
   waitForMs,
   waitForPromise,
-  ActionListener,
+  ActionListener, waitForStateChange, waitForCall,
 } from '../';
 import {configureStore, createSlice} from '@reduxjs/toolkit';
+import {createFunctionCaller} from "../createFunctionCaller";
 
 describe('store with simple reducer', function () {
   const initialState = {
@@ -142,5 +143,78 @@ describe('store with simple reducer', function () {
     });
 
     expect(error).toBeDefined();
+  });
+
+  it('should wait for state change right after dispatch which leads to this state', async () => {
+    const s = new StoreTester<InitialState>({initStore, errorTimoutMs: 100});
+    const {error, state} = await s.run(function* () {
+      yield dispatchAction(sliceActions.setA())
+      yield waitForStateChange((state) => state.status === 'A');
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.status).toBe('A');
+  });
+
+  it('should wait for state change right even if no actions are dispatched', async () => {
+    const s = new StoreTester<InitialState>({initStore, errorTimoutMs: 100});
+    const {error, state} = await s.run(function* () {
+      yield waitForStateChange(() => true);
+    });
+
+    expect(error).toBeUndefined();
+    expect(state).toBe(state);
+  });
+
+  it('should wait for state change and called caller even if no actions are dispatched', async () => {
+    const s = new StoreTester<InitialState>({initStore, errorTimoutMs: 100});
+    const caller = createFunctionCaller();
+    caller();
+    const {error, state} = await s.run(function* () {
+      yield waitForStateChange(() => true);
+      yield waitForCall(caller);
+    });
+
+    expect(error).toBeUndefined();
+    expect(state).toBe(state);
+  });
+
+  it('should wait for called caller and state change even if no actions are dispatched', async () => {
+    const s = new StoreTester<InitialState>({initStore, errorTimoutMs: 100});
+    const caller = createFunctionCaller();
+    caller();
+    const {error, state} = await s.run(function* () {
+      yield waitForCall(caller);
+      yield waitForStateChange(() => true);
+    });
+
+    expect(error).toBeUndefined();
+    expect(state).toBe(state);
+  });
+
+  it('should wait for state change right after waiting for already called caller', async () => {
+    const caller = createFunctionCaller();
+    caller();
+    const s = new StoreTester<InitialState>({initStore, errorTimoutMs: 100});
+    const {error, state} = await s.run(function* () {
+      yield dispatchAction(sliceActions.setA())
+      yield waitForCall(caller);
+      yield waitForStateChange((state) => state.status === 'A');
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.status).toBe('A');
+  });
+
+  it('should wait twice for the same state change right after dispatch which leads to this state', async () => {
+    const s = new StoreTester<InitialState>({initStore, errorTimoutMs: 100});
+    const {error, state} = await s.run(function* () {
+      yield dispatchAction(sliceActions.setA())
+      yield waitForStateChange((state) => state.status === 'A');
+      yield waitForStateChange((state) => state.status === 'A');
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.status).toBe('A');
   });
 })

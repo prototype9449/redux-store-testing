@@ -85,6 +85,40 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
+  it('should wait for state change and then action if one action leads to this', async () => {
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.setA());
+      yield put(sliceActions.setB());
+    });
+
+    const s = new StoreTester<InitialState>({initStore});
+    const {actions, state, error} = await s.run(function* () {
+      yield waitForStateChange((state) => state.status === 'B');
+      yield waitForAction(sliceActions.setB.type);
+    });
+
+    expect(actions).toEqual([sliceActions.setA(), sliceActions.setB()]);
+    expect(state.status).toBe('B');
+    expect(error).toBeUndefined();
+  });
+
+  it('should wait for action and then state change if one action leads to this', async () => {
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.setA());
+      yield put(sliceActions.setB());
+    });
+
+    const s = new StoreTester<InitialState>({initStore});
+    const {actions, state, error} = await s.run(function* () {
+      yield waitForAction(sliceActions.setB.type);
+      yield waitForStateChange((state) => state.status === 'B');
+    });
+
+    expect(actions).toEqual([sliceActions.setA(), sliceActions.setB()]);
+    expect(state.status).toBe('B');
+    expect(error).toBeUndefined();
+  });
+
   it('should not catch action after last take which accepts dispatched in passed function action', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield take(sliceActions.setA.type);
@@ -234,6 +268,102 @@ describe('store with saga and reducer', function () {
       yield waitForCall(caller1);
       yield waitForCall(caller2);
       yield waitForAction(sliceActions.setA.type);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA()]);
+    expect(state.status).toBe('A');
+  });
+
+  it('should wait for caller right after waitForAction', async () => {
+    const caller1 = createFunctionCaller();
+    const caller2 = createFunctionCaller();
+    const mocked1 = jest.fn().mockImplementation(() => {
+      caller1();
+      return;
+    });
+    const mocked2 = jest.fn().mockImplementation(() => {
+      caller2();
+      return;
+    });
+    const initStore = getInitStoreFunction(function* () {
+      yield call(mocked1);
+      yield put(sliceActions.setA());
+      yield call(mocked2);
+      yield put(sliceActions.setB());
+    });
+    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
+    const {actions, state, error} = await s.run(function* () {
+      yield waitForCall(caller1);
+      yield waitForAction(sliceActions.setA.type);
+      yield waitForCall(caller2);
+      yield waitForAction(sliceActions.setB.type);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA(), sliceActions.setB()]);
+    expect(state.status).toBe('B');
+  });
+
+  it('should not wait for already called caller', async () => {
+    const caller = createFunctionCaller();
+    caller();
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.setA());
+    });
+    const {actions, state, error} = await testStore<InitialState>({initStore}, function* () {
+      yield waitForCall(caller);
+      yield waitForAction(sliceActions.setA.type);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA()]);
+    expect(state.status).toBe('A');
+  });
+
+  it('should not wait for already called caller when there are 2 of them', async () => {
+    const caller = createFunctionCaller();
+    caller();
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.setA());
+    });
+    const {actions, state, error} = await testStore<InitialState>({initStore}, function* () {
+      yield waitForCall(caller);
+      yield waitForCall(caller);
+      yield waitForAction(sliceActions.setA.type);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA()]);
+    expect(state.status).toBe('A');
+  });
+
+  it('should not wait for already called caller if there is a delay before', async () => {
+    const caller = createFunctionCaller();
+    caller();
+    const initStore = getInitStoreFunction(function* () {
+      yield delay(1);
+      yield put(sliceActions.setA());
+    });
+    const {actions, state, error} = await testStore<InitialState>({initStore}, function* () {
+      yield waitForCall(caller);
+      yield waitForAction(sliceActions.setA.type);
+    });
+
+    expect(error).toBeUndefined();
+    expect(actions).toEqual([sliceActions.setA()]);
+    expect(state.status).toBe('A');
+  });
+
+  it('should not wait for already called caller after waiting for action', async () => {
+    const caller = createFunctionCaller();
+    caller();
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.setA());
+    });
+    const {actions, state, error} = await testStore<InitialState>({initStore}, function* () {
+      yield waitForAction(sliceActions.setA.type);
+      yield waitForCall(caller);
     });
 
     expect(error).toBeUndefined();
