@@ -30,7 +30,8 @@
     "create-types-js": "tsc -outDir lib",
     "create-types-esm": "tsc -outDir esm",
     "clean": "rimraf esm && rimraf lib",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "jest"
   },
   "keywords": [
     "redux",
