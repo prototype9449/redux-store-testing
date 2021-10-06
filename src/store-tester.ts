@@ -1,9 +1,12 @@
+import {getPrintedActions} from './getPrintedActions';
+
 const defaultSetTimeout = setTimeout;
 
 import {Action, Store} from 'redux';
-import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller, StoreWaitForStateChange} from './effects';
+import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller, StoreWaitForStoreState} from './effects';
 import {waitForMsAndResolve} from './waitForMsAndResolve';
 import {waitForExternalCondition} from './waitForExternalCondition';
+import {getPrintedEffects} from './getPrintedEffects';
 
 type InitParams<T> = {
   originalSetTimeout?: typeof setTimeout;
@@ -24,6 +27,7 @@ export class StoreTester<T> {
   private readonly initializeFunction: (store: Store) => () => void;
   private resolveWhenActionCaught: (() => void) | undefined;
   private resolveWhenStateConditionMet: (() => void) | undefined;
+  private loggedEffects: StoreAction<T>[] = [];
 
   private finished = false;
   private generator: Generator<StoreAction<T>, void, StoreResult<T>> | undefined;
@@ -32,7 +36,7 @@ export class StoreTester<T> {
   private readonly originalSetTimeout;
   private readonly errorTimoutMs: number;
   private promiseToWaitForCall: Promise<void> | undefined;
-  private waitingForExternalPromise = false;
+  private isWaitingForPromise = false;
 
   constructor({
     initStore,
@@ -54,7 +58,7 @@ export class StoreTester<T> {
     this.loggedActions.push(action);
     this.currentState = state;
 
-    if (this.promiseToWaitForCall || this.waitingForExternalPromise) {
+    if (this.promiseToWaitForCall || this.isWaitingForPromise) {
       return;
     }
     this.processCurrentStateAndAction(action);
@@ -65,9 +69,7 @@ export class StoreTester<T> {
       return;
     }
     const isJustDispatchedAction = action ? this.justDispatchedAction === action : false;
-    if (isJustDispatchedAction) {
-      this.justDispatchedAction = undefined;
-    }
+    this.justDispatchedAction = undefined;
 
     this.nextAction = this.nextAction ?? this.processNextAction(this.generator);
     if (!this.nextAction) {
@@ -79,23 +81,26 @@ export class StoreTester<T> {
       this.nextAction.type === StoreActionType.waitForActionType &&
       action.type === this.nextAction.actionType
     ) {
-      this.nextAction = this.processNextAction(this.generator);
+      this.nextAction = undefined;
+      this.processCurrentStateAndAction();
       if (this.resolveWhenActionCaught) {
         this.resolveWhenActionCaught();
+        this.resolveWhenActionCaught = undefined;
       }
-      this.processCurrentStateAndAction();
       return;
     }
 
-    if (this.currentState &&
-      this.nextAction.type === StoreActionType.waitForStateChange &&
+    if (
+      this.currentState &&
+      this.nextAction.type === StoreActionType.waitForStoreState &&
       this.nextAction.condition(this.currentState, this.loggedActions)
     ) {
-      this.nextAction = this.processNextAction(this.generator);
+      this.nextAction = undefined;
+      this.processCurrentStateAndAction(action);
       if (this.resolveWhenStateConditionMet) {
         this.resolveWhenStateConditionMet();
+        this.resolveWhenStateConditionMet = undefined;
       }
-      this.processCurrentStateAndAction(action);
       return;
     }
 
@@ -115,6 +120,7 @@ export class StoreTester<T> {
       this.finished = true;
       return;
     }
+    this.loggedEffects.push(nextAction.value);
     return nextAction.value;
   };
 
@@ -125,7 +131,7 @@ export class StoreTester<T> {
     });
   };
 
-  private waitForStateChange = (action: StoreWaitForStateChange<T>): Promise<void> => {
+  private waitForStateChange = (action: StoreWaitForStoreState<T>): Promise<void> => {
     this.nextAction = action;
     const promise = new Promise<void>(res => {
       this.resolveWhenStateConditionMet = res;
@@ -135,38 +141,27 @@ export class StoreTester<T> {
   };
 
   private async waitForCall(action: StoreWaitForCaller) {
-    const processNextWaitForCallAction = async () => {
-      const nextAction = this.processNextAction(this.generator!);
-      if (!nextAction) {
-        return;
-      }
-      if (nextAction.type === StoreActionType.waitForCall) {
-        //continue to wait for next caller
-        await this.waitForCall(nextAction);
-      } else {
-        this.nextAction = nextAction;
-      }
-      this.promiseToWaitForCall = undefined;
-      return;
-    };
-
     if (action.caller.wasCalled()) {
-      await processNextWaitForCallAction();
-    } else {
-      this.promiseToWaitForCall = new Promise<void>(res => {
-        action.caller.subscribeOnCall(async () => {
-          await processNextWaitForCallAction();
-          res();
-        });
-      });
-      await this.promiseToWaitForCall;
+      this.promiseToWaitForCall = undefined;
+      this.processCurrentStateAndAction();
+      return;
     }
+    this.promiseToWaitForCall = new Promise<void>(res => {
+      action.caller.subscribeOnCall(async () => {
+        this.promiseToWaitForCall = undefined;
+        this.processCurrentStateAndAction();
+        res();
+      });
+    });
+    await this.promiseToWaitForCall;
   }
 
   private timeOut = (): Promise<string | void> => {
     return new Promise<string | void>(res => {
       this.originalSetTimeout(() => {
-        res('Timeout has expired. Caught actions: \n' + this.loggedActions.map(x => x.type).join('\n'));
+        res(
+          `Timeout has expired\n\n${getPrintedActions(this.loggedActions)}\n\n${getPrintedEffects(this.loggedEffects)}`
+        );
       }, this.errorTimoutMs);
     });
   };
@@ -192,50 +187,42 @@ export class StoreTester<T> {
       }
 
       switch (storeAction.type) {
-        case StoreActionType.waitForActionType: {
-          await this.waitForAction(storeAction);
-          this.resolveWhenActionCaught = undefined;
-          break;
-        }
-
-        case StoreActionType.waitForStateChange: {
-          await this.waitForStateChange(storeAction);
-          this.resolveWhenStateConditionMet = undefined;
-          break;
-        }
-
         case StoreActionType.dispatchAction: {
           const action = storeAction.action;
           this.justDispatchedAction = action;
           this.store.dispatch(action);
           break;
         }
-
-        case StoreActionType.waitForMs: {
-          const {ms, callback} = storeAction;
-          this.waitingForExternalPromise = true;
-          await waitForMsAndResolve({ms, callback});
-          this.waitingForExternalPromise = false;
+        case StoreActionType.waitForActionType: {
+          await this.waitForAction(storeAction);
           break;
         }
-
-        case StoreActionType.waitForPromise: {
-          this.waitingForExternalPromise = true;
-          await storeAction.promise; // todo return result?
-          this.waitingForExternalPromise = false;
+        case StoreActionType.waitForStoreState: {
+          await this.waitForStateChange(storeAction);
           break;
         }
-
-        case StoreActionType.waitFor: {
-          const {condition, options} = storeAction;
-          this.waitingForExternalPromise = true;
-          await waitForExternalCondition({condition, options});
-          this.waitingForExternalPromise = false;
-          break;
-        }
-
         case StoreActionType.waitForCall: {
           await this.waitForCall(storeAction);
+          break;
+        }
+        case StoreActionType.waitForMs: {
+          const {ms, callback} = storeAction;
+          this.isWaitingForPromise = true;
+          await waitForMsAndResolve({ms, callback});
+          this.isWaitingForPromise = false;
+          break;
+        }
+        case StoreActionType.waitForPromise: {
+          this.isWaitingForPromise = true;
+          await storeAction.promise;
+          this.isWaitingForPromise = false;
+          break;
+        }
+        case StoreActionType.waitFor: {
+          const {condition, options} = storeAction;
+          this.isWaitingForPromise = true;
+          await waitForExternalCondition({condition, options});
+          this.isWaitingForPromise = false;
           break;
         }
       }
@@ -247,8 +234,8 @@ export class StoreTester<T> {
     this.processCurrentStateAndAction();
     this.store = this.initStore(this.listener);
     this.currentState = this.store.getState();
-    const result: string | void = await Promise.race([this.main(), this.timeOut()]);
     const destruct = this.initializeFunction(this.store);
+    const result: string | void = await Promise.race([this.main(), this.timeOut()]);
     destruct();
     return Promise.resolve({state: this.currentState!, actions: this.loggedActions, error: result ?? undefined});
   }

@@ -123,6 +123,7 @@ describe('tests', function () {
       );
       yield dispatchAction(push('ss'));
       yield waitForAction(LOCATION_CHANGE);
+      yield waitForAction('aqw');
     });
 
     expect(actions.some(a => a.type === 'A')).toBeTruthy();

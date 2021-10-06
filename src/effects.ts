@@ -1,5 +1,7 @@
 import {Action} from 'redux';
-import {Caller} from './createFunctionCaller';
+import {Caller} from './createCaller';
+
+export const DEFAULT_CONDITION_CHECK_INTERVAL = 10;
 
 export type StoreDispatchAction = {
   type: StoreActionType.dispatchAction;
@@ -19,7 +21,7 @@ export type StoreWaitForMs = {
 
 export type StoreWaitForPromise = {
   type: StoreActionType.waitForPromise;
-  promise: Promise<unknown>;
+  promise: Promise<void>;
 };
 
 export type StoreWaitForCaller = {
@@ -27,18 +29,16 @@ export type StoreWaitForCaller = {
   caller: Caller;
 };
 
-export type StoreWaitForStateChange<T> = {
-  type: StoreActionType.waitForStateChange;
+export type StoreWaitForStoreState<T> = {
+  type: StoreActionType.waitForStoreState;
   condition: StateCondition<T>;
 };
 
 export type StoreWaitFor = {
   type: StoreActionType.waitFor;
   condition: ExternalCondition;
-  options: {intervalMs: number}
+  options: {intervalMs: number};
 };
-
-
 
 export type StoreAction<T> =
   | StoreDispatchAction
@@ -47,7 +47,7 @@ export type StoreAction<T> =
   | StoreWaitForPromise
   | StoreWaitForCaller
   | StoreWaitFor
-  | StoreWaitForStateChange<T>;
+  | StoreWaitForStoreState<T>;
 
 export enum StoreActionType {
   waitForActionType = 'waitForActionType',
@@ -55,8 +55,8 @@ export enum StoreActionType {
   waitForMs = 'waitForMs',
   waitForPromise = 'waitForPromise',
   waitForCall = 'waitForCall',
-  waitForStateChange = 'waitForStateChange',
-  waitFor = 'waitFor'
+  waitForStoreState = 'waitForStoreState',
+  waitFor = 'waitFor',
 }
 
 type StateCondition<T> = (state: T, actions: Action[]) => boolean;
@@ -68,7 +68,7 @@ export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => 
   callback,
 });
 
-export const waitForPromise = <T>(promise: Promise<T>): StoreWaitForPromise => ({
+export const waitForPromise = (promise: Promise<void>): StoreWaitForPromise => ({
   type: StoreActionType.waitForPromise,
   promise,
 });
@@ -88,13 +88,16 @@ export const waitForCall = (caller: Caller): StoreWaitForCaller => ({
   caller,
 });
 
-export const waitForStateChange = <T>(condition: StateCondition<T>): StoreWaitForStateChange<T> => ({
-  type: StoreActionType.waitForStateChange,
+export const waitForStateChange = <T>(condition: StateCondition<T>): StoreWaitForStoreState<T> => ({
+  type: StoreActionType.waitForStoreState,
   condition,
 });
 
-export const waitFor = (condition: ExternalCondition, options: {intervalMs: number} = {intervalMs: 50}): StoreWaitFor => ({
+export const waitFor = (
+  condition: ExternalCondition,
+  options: {intervalMs: number} = {intervalMs: DEFAULT_CONDITION_CHECK_INTERVAL}
+): StoreWaitFor => ({
   type: StoreActionType.waitFor,
   condition,
-  options
+  options,
 });

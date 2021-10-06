@@ -2,9 +2,10 @@ export type Caller = {
   () : void;
   subscribeOnCall: (listener: () => void) => void;
   wasCalled: () => boolean;
+  getName: () => string | undefined;
 }
 
-export const createFunctionCaller = (): Caller => {
+export const createCaller = (callerName?: string): Caller => {
   let wasCalled = false;
   let listeners: (() => void)[] = [];
   let canSubscribe = true;
@@ -21,6 +22,7 @@ export const createFunctionCaller = (): Caller => {
     }
   }
   result.wasCalled = (): boolean => wasCalled;
+  result.getName = () => callerName;
 
   return result;
 }
