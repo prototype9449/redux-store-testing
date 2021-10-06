@@ -1,8 +1,8 @@
-import {createFunctionCaller} from '../createFunctionCaller';
+import {createCaller} from '../createCaller';
 
 const originalSetTimeout = setTimeout;
 
-import {applyMiddleware, StoreEnhancer} from 'redux';
+import {applyMiddleware, Store, StoreEnhancer} from 'redux';
 import {
   StoreTester,
   createActionLogger,
@@ -41,7 +41,7 @@ describe('store with saga and reducer', function () {
   });
 
   const getInitStoreFunction = (rootSaga: Saga) =>
-    function initStore(listener: ActionListener) {
+    function initStore(listener: ActionListener): Store<InitialState> {
       const sagaMiddleware = createSagaMiddleware();
       const enhancers: StoreEnhancer[] = [applyMiddleware(sagaMiddleware), createActionLogger(listener)];
       const store = configureStore({
@@ -209,7 +209,7 @@ describe('store with saga and reducer', function () {
   });
 
   it('should wait for call', async () => {
-    const caller = createFunctionCaller();
+    const caller = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
       caller();
       return 'fsdf';
@@ -231,7 +231,7 @@ describe('store with saga and reducer', function () {
   });
 
   it('should wait for call if it is called on initialization', async () => {
-    const caller = createFunctionCaller();
+    const caller = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
       caller();
       return 'fsdf';
@@ -252,8 +252,8 @@ describe('store with saga and reducer', function () {
   });
 
   it('should wait for 2 callers in sequence if they are called on initialization', async () => {
-    const caller1 = createFunctionCaller();
-    const caller2 = createFunctionCaller();
+    const caller1 = createCaller();
+    const caller2 = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
       caller1();
       caller2();
@@ -276,8 +276,8 @@ describe('store with saga and reducer', function () {
   });
 
   it('should wait for caller right after waitForAction', async () => {
-    const caller1 = createFunctionCaller();
-    const caller2 = createFunctionCaller();
+    const caller1 = createCaller();
+    const caller2 = createCaller();
     const mocked1 = jest.fn().mockImplementation(() => {
       caller1();
       return;
@@ -306,7 +306,7 @@ describe('store with saga and reducer', function () {
   });
 
   it('should not wait for already called caller', async () => {
-    const caller = createFunctionCaller();
+    const caller = createCaller();
     caller();
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setA());
@@ -322,7 +322,7 @@ describe('store with saga and reducer', function () {
   });
 
   it('should not wait for already called caller when there are 2 of them', async () => {
-    const caller = createFunctionCaller();
+    const caller = createCaller();
     caller();
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setA());
@@ -339,7 +339,7 @@ describe('store with saga and reducer', function () {
   });
 
   it('should not wait for already called caller if there is a delay before', async () => {
-    const caller = createFunctionCaller();
+    const caller = createCaller();
     caller();
     const initStore = getInitStoreFunction(function* () {
       yield delay(1);
@@ -356,7 +356,7 @@ describe('store with saga and reducer', function () {
   });
 
   it('should not wait for already called caller after waiting for action', async () => {
-    const caller = createFunctionCaller();
+    const caller = createCaller();
     caller();
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setA());
@@ -372,8 +372,8 @@ describe('store with saga and reducer', function () {
   });
 
   it('should wait for 2 callers in sequence if they are called after delay', async () => {
-    const caller1 = createFunctionCaller();
-    const caller2 = createFunctionCaller();
+    const caller1 = createCaller();
+    const caller2 = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
       caller1();
       caller2();
@@ -398,7 +398,7 @@ describe('store with saga and reducer', function () {
 
 
   it('should wait for call and dispatched by store tester async action should come after all dispatched actions in saga', async () => {
-    const caller = createFunctionCaller();
+    const caller = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
       caller();
       return 'fsdf';
