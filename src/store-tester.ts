@@ -8,7 +8,7 @@ import {waitForMsAndResolve} from './waitForMsAndResolve';
 import {waitForExternalCondition} from './waitForExternalCondition';
 import {getPrintedEffects} from './getPrintedEffects';
 
-type InitParams<T> = {
+export type StoreTesterParams<T> = {
   originalSetTimeout?: typeof setTimeout;
   initializeFunction?: (store: Store<T>) => () => void;
   initStore: (listener: (action: Action, state: T) => void) => Store<T>;
@@ -43,7 +43,7 @@ export class StoreTester<T> {
     initializeFunction = () => () => void 0,
     originalSetTimeout,
     errorTimoutMs = DEFAULT_TIMEOUT_ERROR,
-  }: InitParams<T>) {
+  }: StoreTesterParams<T>) {
     this.initStore = initStore;
     this.initializeFunction = initializeFunction;
     this.errorTimoutMs = errorTimoutMs;
@@ -159,6 +159,7 @@ export class StoreTester<T> {
   private timeOut = (): Promise<string | void> => {
     return new Promise<string | void>(res => {
       this.originalSetTimeout(() => {
+        this.finished = true;
         res(
           `Timeout has expired\n\n${getPrintedActions(this.loggedActions)}\n\n${getPrintedEffects(this.loggedEffects)}`
         );
@@ -240,13 +241,3 @@ export class StoreTester<T> {
     return Promise.resolve({state: this.currentState!, actions: this.loggedActions, error: result ?? undefined});
   }
 }
-
-type StoreTesterRunParameters = Parameters<typeof StoreTester.prototype.run>;
-type ReturnTypeOfStoreTesterRun = ReturnType<typeof StoreTester.prototype.run>;
-
-export const testStore = <T>(
-  options: InitParams<T>,
-  ...runParams: StoreTesterRunParameters
-): ReturnTypeOfStoreTesterRun => {
-  return new StoreTester(options).run(...runParams);
-};
