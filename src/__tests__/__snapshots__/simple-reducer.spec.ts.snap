@@ -95,6 +95,16 @@ dispatchAction: Action type - default/setA
 waitForActionType: Type - default/setA"
 `;
 
+exports[`store with simple reducer should not catch action and update state when action is dispatched in the result of initializeFunction 1`] = `
+"Timeout has expired
+
+Caught actions: 
+
+
+Effects: 
+waitForActionType: Type - default/setA"
+`;
+
 exports[`store with simple reducer should not catch action dispatched by store tester 1`] = `
 "Timeout has expired
 
@@ -104,4 +114,24 @@ default/setA
 Effects: 
 dispatchAction: Action type - default/setA
 waitForActionType: Type - default/setA"
+`;
+
+exports[`store with simple reducer should not catch action dispatched in the result of initializeFunction 1`] = `
+"Timeout has expired
+
+Caught actions: 
+
+
+Effects: 
+waitForActionType: Type - default/setA"
+`;
+
+exports[`store with simple reducer should not wait for caller when it is called in the result of initializeFunction 1`] = `
+"Timeout has expired
+
+Caught actions: 
+
+
+Effects: 
+waitForCall: Name - empty"
 `;
