@@ -1,5 +1,9 @@
-import {Action} from "redux";
+import {Action} from 'redux';
 
 export const getPrintedActions = (actions: Action[]): string => {
-  return `Caught actions: \n${actions.map(x => x.type).join('\n')}`
-}
+  if (actions.length === 0) {
+    return `No actions caught`;
+  }
+  return `Caught actions: 
+${actions.map((x, i) => `${i + 1}) ${x.type}`).join('\n')}`;
+};

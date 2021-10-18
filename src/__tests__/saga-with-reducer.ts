@@ -108,6 +108,23 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
+  it('should catch the third incrementValue action and stop the test', async () => {
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.incrementValue());
+      yield put(sliceActions.incrementValue());
+      yield put(sliceActions.incrementValue());
+      yield put(sliceActions.incrementValue());
+    });
+    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
+    const {actions, state, error} = await s.run(function* () {
+      yield waitForAction((action, actions) => actions.length === 3);
+    });
+
+    expect(actions).toEqual([sliceActions.incrementValue(), sliceActions.incrementValue(), sliceActions.incrementValue()]);
+    expect(state.number).toBe(3);
+    expect(error).toBeUndefined();
+  });
+
   it('should catch actions until waited one in passed function', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
@@ -290,6 +307,42 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
     expect(actions).toEqual([sliceActions.setOkStatus()]);
     expect(state.status).toBe('Ok');
+  });
+
+  it('should wait for caller to be called n times', async () => {
+    const caller = createCaller('testCaller');
+    const initStore = getInitStoreFunction(function* () {
+      caller();
+      caller();
+      caller();
+      yield dispatchAction(sliceActions.setOkStatus());
+    });
+    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
+    const {error, actions} = await s.run(function* () {
+      yield waitForCall(caller, {times: 3})
+    });
+
+    expect(error).toBeUndefined();
+    expect(caller.wasCalled(3)).toBeTruthy();
+    expect(actions).toEqual([]);
+  });
+
+  it('should wait for caller to be called n times if caller is called before test', async () => {
+    const caller = createCaller('testCaller');
+    caller();
+    caller();
+    caller();
+    const initStore = getInitStoreFunction(function* () {
+      yield dispatchAction(sliceActions.setOkStatus());
+    });
+    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
+    const {error, actions} = await s.run(function* () {
+      yield waitForCall(caller, {times: 3})
+    });
+
+    expect(error).toBeUndefined();
+    expect(caller.wasCalled(3)).toBeTruthy();
+    expect(actions).toEqual([]);
   });
 
   it('should wait for call if it is called on initialization', async () => {

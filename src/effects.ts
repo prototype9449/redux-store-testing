@@ -1,10 +1,9 @@
 import {Action} from 'redux';
 import {Caller} from './createCaller';
 import {ExternalCondition} from "./waitForExternalCondition";
+import {DEFAULT_CONDITION_CHECK_INTERVAL} from "./constants";
 
-const DEFAULT_CONDITION_CHECK_INTERVAL = 10;
-
-type StoreActionPredicate = (action: Action) => boolean;
+type StoreActionPredicate = (action: Action, loggedActions: Action[]) => boolean;
 
 export type StoreDispatchAction = {
   type: StoreActionType.dispatchAction;
@@ -38,6 +37,7 @@ export type StoreWaitForPromise = {
 export type StoreWaitForCaller = {
   type: StoreActionType.waitForCall;
   caller: Caller;
+  times?: number;
 };
 
 export type StoreWaitForStoreState<T> = {
@@ -100,7 +100,7 @@ interface WaitForActionFunction {
   (predicate: StoreActionPredicate): StoreWaitForAction;
 }
 
-export const waitForAction: WaitForActionFunction = (actionOrPredicate): StoreWaitForAction => ({
+export const waitForAction: WaitForActionFunction = (actionOrPredicate) => ({
   type: StoreActionType.waitForActionType,
   actionOrPredicate,
 });
@@ -110,9 +110,10 @@ export const dispatchAction = (action: Action): StoreDispatchAction => ({
   action,
 });
 
-export const waitForCall = (caller: Caller): StoreWaitForCaller => ({
+export const waitForCall = (caller: Caller, {times}: {times?: number} = {}): StoreWaitForCaller => ({
   type: StoreActionType.waitForCall,
   caller,
+  times
 });
 
 export const waitForState = <T>(condition: StateCondition<T>): StoreWaitForStoreState<T> => ({
