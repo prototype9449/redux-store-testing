@@ -1,163 +1,146 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`store with simple reducer should fail with error when waiting for caller which will not be called 1`] = `
-"Effect waitForCall: Name - empty was not handled
+"Effect waitForCall: Name - empty  was not handled
 
-Caught actions: 
-
+No actions caught
         
-Effects: 
-"
+No effects handled"
 `;
 
 exports[`store with simple reducer should fail with error when waiting for unknown action 1`] = `
 "Effect waitForActionType: Type - unknown was not handled
 
-Caught actions: 
-
+No actions caught
         
-Effects: 
-"
+No effects handled"
 `;
 
 exports[`store with simple reducer should fail with error when waiting for unreachable condition 1`] = `
 "Effect waitFor: Condition name -  was not handled
 
-Caught actions: 
-
+No actions caught
         
-Effects: 
-"
+No effects handled"
 `;
 
 exports[`store with simple reducer should fail with error when waiting longer than error timeout 1`] = `
 "Effect waitForMs: Ms - 10000, Callback - empty was not handled
 
-Caught actions: 
-
+No actions caught
         
-Effects: 
-"
+No effects handled"
 `;
 
 exports[`store with simple reducer should fail with error when waiting unreachable state 1`] = `
 "Effect waitForStoreState: Condition name -  was not handled
 
-Caught actions: 
-
+No actions caught
         
-Effects: 
-"
+No effects handled"
 `;
 
 exports[`store with simple reducer should fail with error when waiting unresolvable promise 1`] = `
 "Effect waitForPromise: Promise was not handled
 
-Caught actions: 
-
+No actions caught
         
-Effects: 
-"
+No effects handled"
 `;
 
 exports[`store with simple reducer should fail with timeout when waiting for dispatched action 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
 Caught actions: 
-default/setOkStatus
+1) default/setOkStatus
         
 Effects: 
-dispatchAction: Action type - default/setOkStatus"
+1) dispatchAction: Action type - default/setOkStatus"
 `;
 
 exports[`store with simple reducer should fail with timeout when waiting for dispatched action after waiting promise 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
 Caught actions: 
-default/setOkStatus
+1) default/setOkStatus
         
 Effects: 
-waitForPromise: Promise
-dispatchAction: Action type - default/setOkStatus"
+1) waitForPromise: Promise
+2) dispatchAction: Action type - default/setOkStatus"
 `;
 
 exports[`store with simple reducer should fail with timeout when waiting for dispatched action after waiting several ms 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
 Caught actions: 
-default/setOkStatus
+1) default/setOkStatus
         
 Effects: 
-waitForMs: Ms - 10, Callback - empty
-dispatchAction: Action type - default/setOkStatus"
+1) waitForMs: Ms - 10, Callback - empty
+2) dispatchAction: Action type - default/setOkStatus"
 `;
 
 exports[`store with simple reducer should not catch action and update state when action is dispatched in the result of initializeFunction 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
-Caught actions: 
-
+No actions caught
         
-Effects: 
-"
+No effects handled"
 `;
 
 exports[`store with simple reducer should not catch action dispatched by store tester 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
 Caught actions: 
-default/setOkStatus
+1) default/setOkStatus
         
 Effects: 
-dispatchAction: Action type - default/setOkStatus"
+1) dispatchAction: Action type - default/setOkStatus"
 `;
 
 exports[`store with simple reducer should not catch the action dispatched after Promise.resolve in runAsyncEffect if action is waited after waitForSyncWorkToFinish 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
 Caught actions: 
-default/setOkStatus
+1) default/setOkStatus
         
 Effects: 
-waitForSyncWorkToFinish"
+1) waitForSyncWorkToFinish"
 `;
 
 exports[`store with simple reducer should not catch the action dispatched in runAsyncEffect if action is waited after waitForSyncWorkToFinish 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
 Caught actions: 
-default/setOkStatus
+1) default/setOkStatus
         
 Effects: 
-waitForSyncWorkToFinish"
+1) waitForSyncWorkToFinish"
 `;
 
 exports[`store with simple reducer should not wait for action dispatched in initializeFunction if waitForInitializeFunction is used first 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
 Caught actions: 
-default/setOkStatus
+1) default/setOkStatus
         
 Effects: 
-waitForInitializeFunction"
+1) waitForInitializeFunction"
 `;
 
 exports[`store with simple reducer should not wait for caller when it is called in the result of initializeFunction 1`] = `
-"Effect waitForCall: Name - empty was not handled
+"Effect waitForCall: Name - empty  was not handled
 
-Caught actions: 
-
+No actions caught
         
-Effects: 
-"
+No effects handled"
 `;
 
 exports[`store with simple reducer should run only first timer yielded in test body 1`] = `
 "Effect waitForMs: Ms - 30000, Callback - empty was not handled
 
-Caught actions: 
-
+No actions caught
         
 Effects: 
-waitForMs: Ms - 30000, Callback - empty"
+1) waitForMs: Ms - 30000, Callback - empty"
 `;
