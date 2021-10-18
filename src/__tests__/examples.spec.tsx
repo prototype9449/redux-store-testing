@@ -11,24 +11,27 @@ import {
   waitForAction,
   waitForMs,
   waitForPromise,
+  waitForSyncWorkToFinish,
 } from '../';
 import {configureStore} from '@reduxjs/toolkit';
 import produce from 'immer';
-import {render} from '@testing-library/react';
-import {Provider} from 'react-redux';
+import {Provider, useDispatch} from 'react-redux';
 import React from 'react';
+import {render, fireEvent, screen} from '@testing-library/react';
 import {EnhancedStore} from '@reduxjs/toolkit/src/configureStore';
+
+import {runAsyncEffect} from '../runAsyncEffect';
 
 const initialState = {
   status: 'C',
 };
 const reducerA = produce((draft, action) => {
   switch (action.type) {
-    case 'A':
-      draft.status = 'A';
+    case 'Ok':
+      draft.status = 'Ok';
       return;
-    case 'B':
-      draft.status = 'B';
+    case 'Error':
+      draft.status = 'Error';
       return;
   }
 }, initialState);
@@ -41,8 +44,11 @@ const rootReducer = history =>
 
 function* rootSaga() {
   function* mySaga() {
-    yield take('B');
-    yield put({type: 'A'});
+    yield take('Error');
+    // const w = yield call(AAA);
+    yield put({type: 'Ok'});
+    yield take('C');
+    yield put({type: 'Q'});
   }
   const sagas = [mySaga];
 
@@ -62,10 +68,7 @@ type StateType = {reducerA: {status: string}};
 
 let store: EnhancedStore<StateType>;
 
-function getStore(listener?: ActionListener, reset = false) {
-  if (store && !reset) {
-    return store;
-  }
+function getStore(listener?: ActionListener) {
   const sagaMiddlewareOptions: SagaMiddlewareOptions = {
     onError: error => {
       // eslint-disable-next-line no-console
@@ -75,7 +78,7 @@ function getStore(listener?: ActionListener, reset = false) {
 
   const sagaMiddleware = createSagaMiddleware(sagaMiddlewareOptions);
 
-  const history = getHistory(reset);
+  const history = getHistory();
 
   const enhancers: StoreEnhancer[] = [applyMiddleware(routerMiddleware(history), sagaMiddleware)];
   if (listener) {
@@ -97,7 +100,7 @@ function getStore(listener?: ActionListener, reset = false) {
 describe('tests', function () {
   it('something', async () => {
     const initializeFunction = (store: Store) => {
-      const history = getHistory(true);
+      const history = getHistory();
       const {unmount} = render(
         <Provider store={store}>
           <ConnectedRouter history={history} />
@@ -111,10 +114,10 @@ describe('tests', function () {
 
     const s = new StoreTester<StateType>({initStore: getStore, initializeFunction});
     const {actions} = await s.run(function* () {
-      const status = (yield dispatchAction({type: 'B'})).state.reducerA.status;
-      expect(status).toBe('B');
-      const {state} = yield waitForAction('A');
-      expect(state.reducerA.status).toBe('A');
+      const status = (yield dispatchAction({type: 'Error'})).state.reducerA.status;
+      expect(status).toBe('Error');
+      const {state} = yield waitForAction('Ok');
+      expect(state.reducerA.status).toBe('Ok');
       yield waitForMs(10);
       yield waitForPromise(
         new Promise<void>(res => {
@@ -123,10 +126,40 @@ describe('tests', function () {
       );
       yield dispatchAction(push('ss'));
       yield waitForAction(LOCATION_CHANGE);
-      yield waitForAction('aqw');
     });
 
-    expect(actions.some(a => a.type === 'A')).toBeTruthy();
-    expect(actions.some(a => a.type === 'B')).toBeTruthy();
+    expect(actions.some(a => a.type === 'Ok')).toBeTruthy();
+    expect(actions.some(a => a.type === 'Error')).toBeTruthy();
+  });
+
+  it('something 2', async () => {
+    const ButtonA = () => {
+      const dispatch = useDispatch();
+      const clickHandler = () => {
+        dispatch({type: 'CCC'});
+      };
+      return <button onClick={clickHandler}>button A</button>;
+    };
+
+    const initializeFunction = (store: Store) => {
+      const {unmount} = render(
+        <Provider store={store}>
+          <ButtonA />
+        </Provider>
+      );
+
+      return () => {
+        unmount();
+      };
+    };
+
+    const s = new StoreTester<StateType>({initStore: getStore, initializeFunction});
+    const {actions} = await s.run(function* () {
+      runAsyncEffect(() => fireEvent.click(screen.getByText('button A')));
+      yield waitForAction('CCC');
+      yield waitForSyncWorkToFinish();
+    });
+
+    expect(actions.some(a => a.type === 'CCC')).toBeTruthy();
   });
 });
