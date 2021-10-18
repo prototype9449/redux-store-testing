@@ -1,4 +1,4 @@
-import {ExternalCondition} from './effects';
+export type ExternalCondition = () => boolean;
 
 export const waitForExternalCondition = ({
   options,

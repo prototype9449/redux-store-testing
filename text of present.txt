@@ -1,0 +1,185 @@
+Hello everyone. As you already know we have our own testing library or utility, we can name it so.
+It is called StoreTester, and it allows to test our app logic, which exists inside saga functions, reducers, seletors, ...
+
+Slide with example of store tester.
+
+Initially, the idea was to tell you about its api, what problems it solves and how to use it to test tricky cases in our core part.
+But it happened that I wrote new library and even posted it on github.
+
+Slide with redux-store-testing
+
+New library works around the same idea - make complex logic around store testable in an easy way.
+It has different more handy api, it is much more readable and easy to debug. Maybe you remember those scary messages from jest framework "Timeout 5000 has expired"(todo).
+
+Slide with "Timeout 5000 has expired"
+
+In new library in case of failure, we will get a nice log in console, so it will be possible to understand what went wrong. Pause.
+I can start describing this framework, its pros and cons and how life should become better when we start using it, but let's first consider several examples,
+where you will understand what this utility can do. I hope that you will not be frightened by api and will not go to github looking for dislike button.
+
+Slide - (“Talk is cheap. Show me the code.” Linus Torvalds)
+
+So, finally, let's move on to the code.
+I don't want to show you ordinary tests, those can really be written in a couple of lines and
+most likely could be done in another test utility, like redux-saga-test-plan. I want to highlight, that the idea of new library (and the old one)
+is to write kind of integration tests, which work on all client side parts of the application at once. We're still relying on implementation details, like actions or service functions
+but at the same time, we can describe in the test what is expected from our system.
+
+So, the first example comes from compile problem. As you know in cdl there could be references to properties.
+Also, there could be references to selected options of single select filter.
+We support them because it is cool when you can reference dynamic value, which depends on option, selected by user. And having such feature implies that we should recompile
+our internal ast model, because reference on dynamic value in our system is like the flapping of a butterfly's wings causing a hurricane - it can change the whole ast.
+And in test we want to check that changing a global filter does lead to compile. We would write it like this
+
+set cdl
+wait for compile
+get private filter id(or selector) from ast
+send action to set global filter
+wait for compile
+check that filter value is set
+
+The new api uses JS generators to allow us to derive some value from current state. So, after sending setCdl action we can get a ready model when compile happen.
+
+function*() {
+    yield dispatchAction(setSourceCode('some cdl'))
+    const {state} = yield waitForAction(setModel);
+    const filterId = selectors.getFilterIdByName('myFilter'); // or selectors.getFilters()[0].id
+    yield dispatchAction(setGlobalFilter(filterId, 'aaa'));
+    yield waitForAction(compileSource.type);
+}
+
+//expect that filter has correct value
+
+Another case - we want to check that setting global filter doesn't lead to compile
+set cdl
+wait for compile
+get private filter id(or selector) from ast
+send action to set global filter
+wait for some timeout(could 1 or 0ms), or for sync logic finish // we allow saga or whatever we use finish the sync logic
+check that compile was called only once
+check that filter value is set
+
+function*() {
+    yield dispatchAction(setCdl('some cdl'))
+    const {state} = yield waitForAction(setAst);
+    const filterId = selectors.getFilterIdByName('myFilter'); // or selectors.getFilters()[0].id
+    yield dispatchAction(setGlobalFilter(filterId, 'aaa'));
+    yield waitForSyncWorkToFinish();
+}
+expect(compile).toBeCalled(1);
+expect filter value
+
+Imagine that requests for filter options are sent sequentially, but the response time for second one is shorter than for first one.
+That means, the second request will finish before first. And we now handle it - we just cancel the piece of logic, response for first one.
+If we did do it, we will receive the outdated, not relevant response.
+Third case - want to check that options for old filter will not come(callback for first request is cancelled and will take an effect)
+Replacing vpath for filter(meaningful part of filter cdl), while fetching its options is a good example. Therefore, let's use it
+
+set cdl
+wait for fetch options call
+set new cdl where previous filter have another vpath
+wait for fetch options call
+run all timers(wait for finishing all requests) // we make finish all timeouts and they are called in correct order, according to its ms values
+wait for filter have correct options from second call
+
+function*() {
+    yield dispatchAction(setCdl('some cdl'))
+    yield waitForCall(fetchOpionsCaller)
+    yield dispatch(setCdl(newcdl))
+    yield waitForCall(fetchOpionsCaller, 2);
+    yield waitForTimeout(5000, () => {
+      jest.runAllTimers(); //or jest.advanceTimersBy(5000);
+    })
+}
+
+expect filter value has correct options
+
+The principe if this framework to continue test as soon as condition is met. Each yield returns current state and actions.
+So, you can select needed info from state and continue test body with this new info. For example we selected filter id to send send filter action.
+We can wait for state, action, function to be called, condition, timeout. For example we can avoid creating function caller, by waiting for condition
+
+yield waitFor(() => fetchOptions.calls.lenght > 0);
+
+or instead of waiting for action compile we can wait for state to be correct
+
+yield waitForState((state) => selectors.getAst(state) !== undefined);
+
+also, if we want we can wait for number of actions to be dispatched
+
+yield waitForState((state, actions) => actions.filter(a => a.type === 'compiler').length === 3)
+
+One more advantage of this framework is that it can work with react components, actually anything.
+
+Example with clicking on button, which cause action dispatch
+   const ButtonA = () => {
+      const dispatch = useDispatch();
+      const clickHandler = () => {dispatch({type: 'CCC'})};
+      return <button onClick={clickHandler}>button A</button>
+    }
+
+    const initializeFunction = (store: Store) => {
+      const {unmount} = render(
+          <Provider store={store}>
+            <ButtonA/>
+          </Provider>
+      );
+
+      return () => {
+        unmount();
+      };
+    };
+
+    const s = new StoreTester<StateType>({initStore: getStore, initializeFunction});
+    const {actions} = await s.run(function* () {
+      yield waitForInitializeFunction();
+      runAsyncEffect(() => fireEvent.click(screen.getByText('button A')));
+      yield waitForAction('CCC');
+    });
+
+Currently in old api we render in init function the connected react router to make it listen for psuh/pop/replace navigate actions.
+But as you see this mechanism could be used for testing logic between saga and react.
+
+
+redux-saga-test-plan
+
+function* userSaga(api) {
+  try {
+    const action = yield take('REQUEST_USER');
+    const user = yield call(api.fetchUser, action.payload);
+    const pet = yield call(api.fetchPet, user.petId);
+
+    yield put({
+      type: 'RECEIVE_USER',
+      payload: { user, pet },
+    });
+  } catch (e) {
+    yield put({ type: 'FAIL_USER', error: e });
+  }
+}
+
+it('fetches the user', () => {
+  const fakeUser = { name: 'Jeremy', petId: 20 };
+  const fakeDog = { name: 'Tucker' };
+
+  return expectSaga(userSaga, api)
+    .provide([
+      [call(api.fetchUser, 42), fakeUser],
+      [matchers.call.fn(api.fetchPet), fakeDog],
+    ])
+    .put({
+      type: 'RECEIVE_USER',
+      payload: { user: fakeUser, pet: fakeDog },
+    })
+    .dispatch({ type: 'REQUEST_USER', payload: 42 })
+    .run();
+});
+
+Doesn't allow to base effects payload on current state
+Doesn't allow to set a breakpoint in the middle of test
+Doesn't allow to subscribe on function call, only when you provide call mock first
+Doesn't allow to subscribe on state with some condition (select state and return boolean)
+
+Testing every part separatelly - reducer, saga, selector
+we should somehow do this anyway, but how to test everything together?
+
+

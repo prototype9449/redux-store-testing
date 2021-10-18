@@ -1,18 +1,17 @@
-import {getPrintedActions} from './getPrintedActions';
-
-const defaultSetTimeout = setTimeout;
-
 import {Action, Store} from 'redux';
 import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller, StoreWaitForStoreState} from './effects';
 import {waitForMsAndResolve} from './waitForMsAndResolve';
 import {waitForExternalCondition} from './waitForExternalCondition';
-import {getPrintedEffects} from './getPrintedEffects';
+import {printError} from './printError';
+
+const defaultSetTimeout = setTimeout;
 
 export type StoreTesterParams<T> = {
   originalSetTimeout?: typeof setTimeout;
   initializeFunction?: (store: Store<T>) => () => void;
   initStore: (listener: (action: Action, state: T) => void) => Store<T>;
   errorTimoutMs?: number;
+  throwOnTimeout?: boolean;
 };
 
 export type StoreResult<T> = {actions: Action[]; state: T; error?: string};
@@ -27,7 +26,9 @@ export class StoreTester<T> {
   private readonly initializeFunction: (store: Store) => () => void;
   private resolveWhenActionCaught: (() => void) | undefined;
   private resolveWhenStateConditionMet: (() => void) | undefined;
+  private resolveWhenInitFunctionCalled: (() => void) | undefined;
   private loggedEffects: StoreAction<T>[] = [];
+  private initFunctionIsCalled = false;
 
   private finished = false;
   private generator: Generator<StoreAction<T>, void, StoreResult<T>> | undefined;
@@ -36,14 +37,18 @@ export class StoreTester<T> {
   private readonly originalSetTimeout;
   private readonly errorTimoutMs: number;
   private promiseToWaitForCall: Promise<void> | undefined;
+  private promiseToWaitForInitFunctionToBeCalled: Promise<void> | undefined;
   private isWaitingForPromise = false;
+  private throwOnTimeout: boolean;
 
   constructor({
     initStore,
     initializeFunction = () => () => void 0,
     originalSetTimeout,
+    throwOnTimeout = true,
     errorTimoutMs = DEFAULT_TIMEOUT_ERROR,
   }: StoreTesterParams<T>) {
+    this.throwOnTimeout = throwOnTimeout;
     this.initStore = initStore;
     this.initializeFunction = initializeFunction;
     this.errorTimoutMs = errorTimoutMs;
@@ -58,7 +63,7 @@ export class StoreTester<T> {
     this.loggedActions.push(action);
     this.currentState = state;
 
-    if (this.promiseToWaitForCall || this.isWaitingForPromise) {
+    if (this.promiseToWaitForCall || this.isWaitingForPromise || this.promiseToWaitForInitFunctionToBeCalled) {
       return;
     }
     this.processCurrentStateAndAction(action);
@@ -79,7 +84,8 @@ export class StoreTester<T> {
       action &&
       !isJustDispatchedAction &&
       this.nextAction.type === StoreActionType.waitForActionType &&
-      action.type === this.nextAction.actionType
+      ((typeof this.nextAction.actionOrPredicate === 'string' && action.type === this.nextAction.actionOrPredicate) ||
+        (typeof this.nextAction.actionOrPredicate === 'function' && this.nextAction.actionOrPredicate(action)))
     ) {
       this.nextAction = undefined;
       this.processCurrentStateAndAction();
@@ -110,6 +116,11 @@ export class StoreTester<T> {
       this.waitForCall(action);
       return;
     }
+
+    if (this.nextAction?.type === StoreActionType.waitForInitializeFunction && this.initFunctionIsCalled) {
+      this.nextAction = undefined;
+      this.processCurrentStateAndAction();
+    }
   }
 
   private processNextAction = (
@@ -131,13 +142,20 @@ export class StoreTester<T> {
     });
   };
 
-  private waitForStateChange = (action: StoreWaitForStoreState<T>): Promise<void> => {
+  private waitForState = (action: StoreWaitForStoreState<T>): Promise<void> => {
     this.nextAction = action;
     const promise = new Promise<void>(res => {
       this.resolveWhenStateConditionMet = res;
     });
     this.processCurrentStateAndAction();
     return promise;
+  };
+
+  private waitForInitFunctionToBeCalled = (): Promise<void> => {
+    this.promiseToWaitForInitFunctionToBeCalled = new Promise(res => {
+      this.resolveWhenInitFunctionCalled = res;
+    });
+    return this.promiseToWaitForInitFunctionToBeCalled;
   };
 
   private async waitForCall(action: StoreWaitForCaller) {
@@ -160,9 +178,7 @@ export class StoreTester<T> {
     return new Promise<string | void>(res => {
       this.originalSetTimeout(() => {
         this.finished = true;
-        res(
-          `Timeout has expired\n\n${getPrintedActions(this.loggedActions)}\n\n${getPrintedEffects(this.loggedEffects)}`
-        );
+        res(printError(this.loggedEffects, this.loggedActions));
       }, this.errorTimoutMs);
     });
   };
@@ -199,7 +215,7 @@ export class StoreTester<T> {
           break;
         }
         case StoreActionType.waitForStoreState: {
-          await this.waitForStateChange(storeAction);
+          await this.waitForState(storeAction);
           break;
         }
         case StoreActionType.waitForCall: {
@@ -226,6 +242,18 @@ export class StoreTester<T> {
           this.isWaitingForPromise = false;
           break;
         }
+        case StoreActionType.waitForInitializeFunction: {
+          if (this.initFunctionIsCalled) {
+            break;
+          }
+          await this.waitForInitFunctionToBeCalled();
+          break;
+        }
+        case StoreActionType.waitForSyncWorkToFinish: {
+          this.isWaitingForPromise = true;
+          await waitForMsAndResolve({ms: 0});
+          this.isWaitingForPromise = false;
+        }
       }
     }
   };
@@ -236,8 +264,16 @@ export class StoreTester<T> {
     this.store = this.initStore(this.listener);
     this.currentState = this.store.getState();
     const destruct = this.initializeFunction(this.store);
+    this.initFunctionIsCalled = true;
+    if (this.resolveWhenInitFunctionCalled) {
+      this.resolveWhenInitFunctionCalled();
+      this.promiseToWaitForInitFunctionToBeCalled = undefined;
+    }
     const result: string | void = await Promise.race([this.main(), this.timeOut()]);
     destruct();
+    if (result && this.throwOnTimeout) {
+      throw new Error(result);
+    }
     return Promise.resolve({state: this.currentState!, actions: this.loggedActions, error: result ?? undefined});
   }
 }

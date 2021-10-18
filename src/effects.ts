@@ -1,7 +1,10 @@
 import {Action} from 'redux';
 import {Caller} from './createCaller';
+import {ExternalCondition} from "./waitForExternalCondition";
 
-export const DEFAULT_CONDITION_CHECK_INTERVAL = 10;
+const DEFAULT_CONDITION_CHECK_INTERVAL = 10;
+
+type StoreActionPredicate = (action: Action) => boolean;
 
 export type StoreDispatchAction = {
   type: StoreActionType.dispatchAction;
@@ -10,7 +13,15 @@ export type StoreDispatchAction = {
 
 export type StoreWaitForAction = {
   type: StoreActionType.waitForActionType;
-  actionType: string;
+  actionOrPredicate: string | StoreActionPredicate;
+};
+
+export type StoreWaitForInitializeFunction = {
+  type: StoreActionType.waitForInitializeFunction;
+};
+
+export type StoreWaitForSyncWorkToFinish = {
+  type: StoreActionType.waitForSyncWorkToFinish;
 };
 
 export type StoreWaitForMs = {
@@ -47,6 +58,8 @@ export type StoreAction<T> =
   | StoreWaitForPromise
   | StoreWaitForCaller
   | StoreWaitFor
+  | StoreWaitForInitializeFunction
+  | StoreWaitForSyncWorkToFinish
   | StoreWaitForStoreState<T>;
 
 export enum StoreActionType {
@@ -57,10 +70,11 @@ export enum StoreActionType {
   waitForCall = 'waitForCall',
   waitForStoreState = 'waitForStoreState',
   waitFor = 'waitFor',
+  waitForInitializeFunction = 'waitForInitializeFunction',
+  waitForSyncWorkToFinish = 'waitForSyncWorkToFinish',
 }
 
 type StateCondition<T> = (state: T, actions: Action[]) => boolean;
-export type ExternalCondition = () => boolean;
 
 export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => ({
   type: StoreActionType.waitForMs,
@@ -68,14 +82,27 @@ export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => 
   callback,
 });
 
+export const waitForInitializeFunction = (): StoreWaitForInitializeFunction => ({
+  type: StoreActionType.waitForInitializeFunction,
+});
+
+export const waitForSyncWorkToFinish = (): StoreWaitForSyncWorkToFinish => ({
+  type: StoreActionType.waitForSyncWorkToFinish,
+});
+
 export const waitForPromise = (promise: Promise<void>): StoreWaitForPromise => ({
   type: StoreActionType.waitForPromise,
   promise,
 });
 
-export const waitForAction = (actionType: string): StoreWaitForAction => ({
+interface WaitForActionFunction {
+  (actionType: string): StoreWaitForAction;
+  (predicate: StoreActionPredicate): StoreWaitForAction;
+}
+
+export const waitForAction: WaitForActionFunction = (actionOrPredicate): StoreWaitForAction => ({
   type: StoreActionType.waitForActionType,
-  actionType,
+  actionOrPredicate,
 });
 
 export const dispatchAction = (action: Action): StoreDispatchAction => ({
@@ -88,7 +115,7 @@ export const waitForCall = (caller: Caller): StoreWaitForCaller => ({
   caller,
 });
 
-export const waitForStateChange = <T>(condition: StateCondition<T>): StoreWaitForStoreState<T> => ({
+export const waitForState = <T>(condition: StateCondition<T>): StoreWaitForStoreState<T> => ({
   type: StoreActionType.waitForStoreState,
   condition,
 });
