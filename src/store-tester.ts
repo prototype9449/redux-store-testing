@@ -3,6 +3,7 @@ import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller, St
 import {waitForMsAndResolve} from './waitForMsAndResolve';
 import {waitForExternalCondition} from './waitForExternalCondition';
 import {printError} from './printError';
+import {DEFAULT_TIMEOUT_ERROR} from './constants';
 
 const defaultSetTimeout = setTimeout;
 
@@ -15,8 +16,6 @@ export type StoreTesterParams<T> = {
 };
 
 export type StoreResult<T> = {actions: Action[]; state: T; error?: string};
-
-const DEFAULT_TIMEOUT_ERROR = 3000;
 
 export class StoreTester<T> {
   private store: Store<T>;
@@ -85,7 +84,8 @@ export class StoreTester<T> {
       !isJustDispatchedAction &&
       this.nextAction.type === StoreActionType.waitForActionType &&
       ((typeof this.nextAction.actionOrPredicate === 'string' && action.type === this.nextAction.actionOrPredicate) ||
-        (typeof this.nextAction.actionOrPredicate === 'function' && this.nextAction.actionOrPredicate(action)))
+        (typeof this.nextAction.actionOrPredicate === 'function' &&
+          this.nextAction.actionOrPredicate(action, [...this.loggedActions])))
     ) {
       this.nextAction = undefined;
       this.processCurrentStateAndAction();
@@ -262,7 +262,7 @@ export class StoreTester<T> {
     this.generator = createGenerator ? createGenerator() : undefined;
     this.processCurrentStateAndAction();
     this.store = this.initStore(this.listener);
-    this.currentState = this.store.getState();
+    this.currentState = this.currentState ?? this.store.getState();
     const destruct = this.initializeFunction(this.store);
     this.initFunctionIsCalled = true;
     if (this.resolveWhenInitFunctionCalled) {

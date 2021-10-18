@@ -19,7 +19,8 @@ export const printEffect = (effect: StoreAction<unknown>): string => {
       return `${effect.type}: ${message}`;
     }
     case StoreActionType.waitForCall: {
-      return `${effect.type}: Name - ${effect.caller.getName() ?? 'empty'}`;
+      const timesCalledMessage = effect.times ? `Times - ${effect.times}` : '';
+      return `${effect.type}: Name - ${effect.caller.getName() ?? 'empty'} ${timesCalledMessage}`;
     }
     case StoreActionType.waitForPromise: {
       return `${effect.type}: Promise`;
@@ -40,7 +41,12 @@ export const printEffect = (effect: StoreAction<unknown>): string => {
 };
 
 export const getPrintedEffects = (effects: StoreAction<unknown>[]): string => {
-  const printedEffects = effects.map(effect => printEffect(effect));
+  if(effects.length === 0){
+    return 'No effects handled'
+  }
 
-  return `Effects: \n${printedEffects.join('\n')}`;
+  const printedEffects = effects.map((effect, i) => `${i+1}) ${printEffect(effect)}`);
+
+  return `Effects: 
+${printedEffects.join('\n')}`;
 };

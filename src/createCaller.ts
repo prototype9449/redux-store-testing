@@ -1,17 +1,17 @@
 export type Caller = {
   () : void;
   subscribeOnCall: (listener: () => void) => void;
-  wasCalled: () => boolean;
+  wasCalled: (times?: number) => boolean;
   getName: () => string | undefined;
 }
 
 export const createCaller = (callerName?: string): Caller => {
-  let wasCalled = false;
+  let timesCalled = 0;
   let listeners: (() => void)[] = [];
   let canSubscribe = true;
 
   const result = () => {
-    wasCalled = true;
+    timesCalled++;
     listeners.forEach((l) => l());
     listeners = [];
     canSubscribe = false;
@@ -21,7 +21,7 @@ export const createCaller = (callerName?: string): Caller => {
       listeners.push(listener);
     }
   }
-  result.wasCalled = (): boolean => wasCalled;
+  result.wasCalled = (times?: number): boolean => times ? timesCalled === times : timesCalled > 0;
   result.getName = () => callerName;
 
   return result;
