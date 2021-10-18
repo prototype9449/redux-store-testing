@@ -5,4 +5,4 @@ node_modules
 package-lock.json
 esm
 lib
-src/__tests__/examples.spec
+src/__tests__/examples.spec.ts*
