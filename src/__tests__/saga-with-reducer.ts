@@ -84,8 +84,7 @@ describe('store with saga and reducer', function () {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await testStore<InitialState>({...testStoreParams, initStore}, function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 
@@ -120,7 +119,11 @@ describe('store with saga and reducer', function () {
       yield waitForAction((action, actions) => actions.length === 3);
     });
 
-    expect(actions).toEqual([sliceActions.incrementValue(), sliceActions.incrementValue(), sliceActions.incrementValue()]);
+    expect(actions).toEqual([
+      sliceActions.incrementValue(),
+      sliceActions.incrementValue(),
+      sliceActions.incrementValue(),
+    ]);
     expect(state.number).toBe(3);
     expect(error).toBeUndefined();
   });
@@ -319,7 +322,7 @@ describe('store with saga and reducer', function () {
     });
     const s = new StoreTester<InitialState>({...testStoreParams, initStore});
     const {error, actions} = await s.run(function* () {
-      yield waitForCall(caller, {times: 3})
+      yield waitForCall(caller, {times: 3});
     });
 
     expect(error).toBeUndefined();
@@ -337,7 +340,7 @@ describe('store with saga and reducer', function () {
     });
     const s = new StoreTester<InitialState>({...testStoreParams, initStore});
     const {error, actions} = await s.run(function* () {
-      yield waitForCall(caller, {times: 3})
+      yield waitForCall(caller, {times: 3});
     });
 
     expect(error).toBeUndefined();
