@@ -302,7 +302,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    await testStore(realParams, function* () {
+    await testStore<InitialState>(realParams, function* () {
       expect(placeToCall).toBe('unknown');
       yield waitForMs(1);
       expect(placeToCall).toBe('init');
@@ -320,7 +320,7 @@ describe('store with simple reducer', function () {
         };
       },
     };
-    await testStore(realParams, function* () {
+    await testStore<InitialState>(realParams, function* () {
       expect(wasCalled).toBeFalsy();
       yield waitFor(() => true);
     });
@@ -335,7 +335,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error, actions, state} = await testStore(realParams, function* () {
+    const {error, actions, state} = await testStore<InitialState>(realParams, function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 
@@ -354,7 +354,7 @@ describe('store with simple reducer', function () {
         };
       },
     };
-    const {error, actions, state} = await testStore(realParams, function* () {
+    const {error, actions, state} = await testStore<InitialState>(realParams, function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 
@@ -374,7 +374,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore(realParams, function* () {
+    const {error} = await testStore<InitialState>(realParams, function* () {
       yield waitForCall(caller);
     });
 
@@ -393,7 +393,7 @@ describe('store with simple reducer', function () {
         };
       },
     };
-    const {error} = await testStore(realParams, function* () {
+    const {error} = await testStore<InitialState>(realParams, function* () {
       yield waitForCall(caller);
     });
 
@@ -412,7 +412,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore(realParams, function* () {
+    const {error} = await testStore<InitialState>(realParams, function* () {
       yield waitForInitializeFunction();
       yield waitForCall(caller);
     });
@@ -431,7 +431,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore(realParams, function* () {
+    const {error} = await testStore<InitialState>(realParams, function* () {
       yield waitForInitializeFunction();
       yield waitForInitializeFunction();
       yield waitForCall(caller);
@@ -453,7 +453,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error, actions} = await testStore(realParams, function* () {
+    const {error, actions} = await testStore<InitialState>(realParams, function* () {
       yield waitForInitializeFunction();
       yield dispatchAction(sliceActions.setOkStatus());
     });
@@ -475,7 +475,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error, actions} = await testStore(realParams, function* () {
+    const {error, actions} = await testStore<InitialState>(realParams, function* () {
       yield waitForInitializeFunction();
       yield waitForInitializeFunction();
       yield dispatchAction(sliceActions.setOkStatus());
@@ -498,7 +498,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error, actions} = await testStore(realParams, function* () {
+    const {error, actions} = await testStore<InitialState>(realParams, function* () {
       yield dispatchAction(sliceActions.setOkStatus());
     });
 
@@ -517,7 +517,7 @@ describe('store with simple reducer', function () {
         };
       },
     };
-    const {actions, error} = await testStore(realParams, function* () {
+    const {actions, error} = await testStore<InitialState>(realParams, function* () {
       yield dispatchAction(sliceActions.setErrorStatus());
       yield waitForSyncWorkToFinish();
     });
@@ -535,7 +535,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {actions, error} = await testStore(realParams, function* () {
+    const {actions, error} = await testStore<InitialState>(realParams, function* () {
       yield waitForInitializeFunction();
       yield waitForAction(sliceActions.setOkStatus.type);
     });
@@ -554,7 +554,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {actions, error} = await testStore(realParams, function* () {
+    const {actions, error} = await testStore<InitialState>(realParams, function* () {
       yield waitForSyncWorkToFinish();
     });
 
@@ -569,7 +569,7 @@ describe('store with simple reducer', function () {
       ...params,
       errorTimoutMs: 10,
     };
-    const {actions, error} = await testStore(realParams, function* () {
+    const {actions, error} = await testStore<InitialState>(realParams, function* () {
       runAsyncEffect(() => {
         jest.advanceTimersByTime(30000);
       });
@@ -590,7 +590,7 @@ describe('store with simple reducer', function () {
       ...params,
       errorTimoutMs: 10,
     };
-    const {error} = await testStore(realParams, function* () {
+    const {error} = await testStore<InitialState>(realParams, function* () {
       runAsyncEffect(() => {
         jest.runAllTimers();
       });
@@ -614,7 +614,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {actions, error} = await testStore(realParams, function* () {
+    const {actions, error} = await testStore<InitialState>(realParams, function* () {
       runAsyncEffect(() => {
         storeInstance.dispatch(sliceActions.setOkStatus());
       });
@@ -635,7 +635,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {actions, error} = await testStore(realParams, function* () {
+    const {actions, error} = await testStore<InitialState>(realParams, function* () {
       runAsyncEffect(() => {
         storeInstance.dispatch(sliceActions.setOkStatus());
         storeInstance.dispatch(sliceActions.setErrorStatus());
@@ -658,7 +658,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore(realParams, function* () {
+    const {error} = await testStore<InitialState>(realParams, function* () {
       runAsyncEffect(() => {
         storeInstance.dispatch(sliceActions.setOkStatus());
       });
@@ -680,7 +680,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore(realParams, function* () {
+    const {error} = await testStore<InitialState>(realParams, function* () {
       runAsyncEffect(() => {
         Promise.resolve().then(() => storeInstance.dispatch(sliceActions.setOkStatus()));
       });

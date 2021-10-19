@@ -1,6 +1,6 @@
 {
   "name": "redux-store-testing",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Testing library for redux store",
   "repository": {
     "type": "git",
