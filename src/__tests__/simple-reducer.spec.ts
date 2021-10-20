@@ -18,6 +18,7 @@ import {
 import {configureStore, createSlice} from '@reduxjs/toolkit';
 import {createCaller} from '../createCaller';
 import {runAsyncEffect} from '../runAsyncEffect';
+import { StoreResult } from '../store-tester';
 
 describe('store with simple reducer', function () {
   const initialState = {
@@ -41,7 +42,7 @@ describe('store with simple reducer', function () {
     },
   });
 
-  function initStore(listener: ActionListener) {
+  function initStore(listener: ActionListener<InitialState>) {
     const enhancers: StoreEnhancer[] = [createActionLogger(listener)];
 
     return configureStore({
@@ -54,12 +55,12 @@ describe('store with simple reducer', function () {
   const params = {initStore, errorTimoutMs: 10, throwOnTimeout: false};
 
   it('should catch 1 action and produce correct state', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {actions, state, error} = await s.run(function* () {
       const {
         state: {status},
         actions,
-      } = yield dispatchAction(sliceActions.setOkStatus());
+      } = (yield dispatchAction(sliceActions.setOkStatus())) as StoreResult<InitialState>;;
       expect(status).toBe('Ok');
       expect(actions.length).toBe(1);
     });
@@ -71,14 +72,14 @@ describe('store with simple reducer', function () {
   });
 
   it('should catch 2 actions and increment number up to 2', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {actions, state, error} = await s.run(function* () {
-      const result1 = yield dispatchAction(sliceActions.incrementValue());
+      const result1 = (yield dispatchAction(sliceActions.incrementValue())) as StoreResult<InitialState>;;
 
       expect(result1.state.number).toBe(1);
       expect(result1.actions.length).toBe(1);
 
-      const result2 = yield dispatchAction(sliceActions.incrementValue());
+      const result2 = (yield dispatchAction(sliceActions.incrementValue())) as StoreResult<InitialState>;;
 
       expect(result2.state.number).toBe(2);
       expect(result2.actions.length).toBe(2);
@@ -91,7 +92,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should fail with timeout when waiting for dispatched action', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     let wasRestCodeRun = false;
     const {actions, state, error} = await s.run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
@@ -107,7 +108,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should fail with timeout when waiting for dispatched action after waiting several ms', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     let wasRestCodeRun = false;
     const {actions, state, error} = await s.run(function* () {
       yield waitForMs(10);
@@ -124,7 +125,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should fail with timeout when waiting for dispatched action after waiting promise', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     let wasRestCodeRun = false;
 
     const {actions, state, error} = await s.run(function* () {
@@ -146,7 +147,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should not catch action dispatched by store tester', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error} = await s.run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForAction(sliceActions.setOkStatus.type);
@@ -157,7 +158,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should wait for state change right after dispatch which leads to this state', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error, state} = await s.run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForState(state => state.status === 'Ok');
@@ -168,7 +169,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should wait for state change right even if no actions are dispatched', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error, state} = await s.run(function* () {
       yield waitForState(() => true);
     });
@@ -178,7 +179,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should wait for state change and called caller even if no actions are dispatched', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const caller = createCaller();
     caller();
     const {error, state} = await s.run(function* () {
@@ -191,7 +192,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should wait for called caller and state change even if no actions are dispatched', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const caller = createCaller();
     caller();
     const {error, state} = await s.run(function* () {
@@ -206,7 +207,7 @@ describe('store with simple reducer', function () {
   it('should wait for state change right after waiting for already called caller', async () => {
     const caller = createCaller();
     caller();
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error, state} = await s.run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForCall(caller);
@@ -218,7 +219,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should wait twice for the same state change right after dispatch which leads to this state', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error, state} = await s.run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForState(state => state.status === 'Ok');
@@ -230,7 +231,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should fail with error when waiting for unknown action', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error} = await s.run(function* () {
       yield waitForAction('unknown');
     });
@@ -240,7 +241,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should fail with error when waiting for caller which will not be called', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error} = await s.run(function* () {
       yield waitForCall(createCaller());
     });
@@ -250,7 +251,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should fail with error when waiting unreachable state', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error} = await s.run(function* () {
       yield waitForState(() => false);
     });
@@ -260,7 +261,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should fail with error when waiting unresolvable promise', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error} = await s.run(function* () {
       yield waitForPromise(
         new Promise<void>(() => {
@@ -274,7 +275,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should fail with error when waiting longer than error timeout', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error} = await s.run(function* () {
       yield waitForMs(10000);
     });
@@ -284,7 +285,7 @@ describe('store with simple reducer', function () {
   });
 
   it('should fail with error when waiting for unreachable condition', async () => {
-    const s = new StoreTester<InitialState>(params);
+    const s = new StoreTester(params);
     const {error} = await s.run(function* () {
       yield waitFor(() => false);
     });
@@ -335,7 +336,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error, actions, state} = await testStore<InitialState>(realParams, function* () {
+    const {error, actions, state} = await testStore(realParams, function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 

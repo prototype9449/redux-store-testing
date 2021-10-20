@@ -3,7 +3,7 @@ import {StoreAction} from './effects';
 
 export const testStore = <T>(
   options: StoreTesterParams<T>,
-  createGenerator?: () => Generator<StoreAction<T>, void, StoreResult<T>>
+  createGenerator?: () => Generator<StoreAction<T>>
 ): Promise<StoreResult<T>> => {
   return new StoreTester<T>(options).run(createGenerator);
 };
