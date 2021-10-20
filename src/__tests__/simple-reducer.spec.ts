@@ -60,7 +60,7 @@ describe('store with simple reducer', function () {
       const {
         state: {status},
         actions,
-      } = (yield dispatchAction(sliceActions.setOkStatus())) as StoreResult<InitialState>;;
+      } = (yield dispatchAction(sliceActions.setOkStatus())) as StoreResult<InitialState>;
       expect(status).toBe('Ok');
       expect(actions.length).toBe(1);
     });
@@ -74,12 +74,12 @@ describe('store with simple reducer', function () {
   it('should catch 2 actions and increment number up to 2', async () => {
     const s = new StoreTester(params);
     const {actions, state, error} = await s.run(function* () {
-      const result1 = (yield dispatchAction(sliceActions.incrementValue())) as StoreResult<InitialState>;;
+      const result1 = (yield dispatchAction(sliceActions.incrementValue())) as StoreResult<InitialState>;
 
       expect(result1.state.number).toBe(1);
       expect(result1.actions.length).toBe(1);
 
-      const result2 = (yield dispatchAction(sliceActions.incrementValue())) as StoreResult<InitialState>;;
+      const result2 = (yield dispatchAction(sliceActions.incrementValue())) as StoreResult<InitialState>;
 
       expect(result2.state.number).toBe(2);
       expect(result2.actions.length).toBe(2);

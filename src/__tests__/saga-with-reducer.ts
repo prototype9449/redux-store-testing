@@ -560,7 +560,7 @@ describe('store with saga and reducer', function () {
     });
     const s = new StoreTester({initStore, originalSetTimeout});
     const {actions, state, error} = await s.run(function* () {
-      const {state, actions} = (yield waitForState(state => state.status === 'Error')) as StoreResult<InitialState>;;
+      const {state, actions} = (yield waitForState(state => state.status === 'Error')) as StoreResult<InitialState>;
       expect(state.status).toBe('Error');
       expect(actions).toEqual([sliceActions.setOkStatus(), sliceActions.setErrorStatus()]);
       yield dispatchAction(sliceActions.incrementValue());
