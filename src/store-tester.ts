@@ -259,7 +259,7 @@ export class StoreTester<T> {
     }
   };
 
-  public async run(createGenerator?: () => Generator<StoreAction<T>>): Promise<StoreResult<T>> {
+  public async run(createGenerator?: () => Generator<StoreAction<T>, void, StoreResult<T>>): Promise<StoreResult<T>> {
     this.generator = createGenerator ? createGenerator() : undefined;
     this.processCurrentStateAndAction();
     this.store = this.initStore(this.listener);

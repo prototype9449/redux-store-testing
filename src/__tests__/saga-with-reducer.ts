@@ -13,7 +13,6 @@ import {
   waitForCall,
   waitForState,
   waitFor,
-  testStore,
 } from '../';
 import {configureStore, createSlice} from '@reduxjs/toolkit';
 import createSagaMiddleware from 'redux-saga';
@@ -84,7 +83,7 @@ describe('store with saga and reducer', function () {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await new StoreTester({...testStoreParams, initStore}).run(function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 
@@ -429,7 +428,7 @@ describe('store with saga and reducer', function () {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await new StoreTester({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller);
       yield waitForAction(sliceActions.setOkStatus.type);
     });
@@ -445,7 +444,7 @@ describe('store with saga and reducer', function () {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await new StoreTester({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller);
       yield waitForCall(caller);
       yield waitForAction(sliceActions.setOkStatus.type);
@@ -463,7 +462,7 @@ describe('store with saga and reducer', function () {
       yield delay(1);
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await new StoreTester({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller);
       yield waitForAction(sliceActions.setOkStatus.type);
     });
@@ -479,7 +478,7 @@ describe('store with saga and reducer', function () {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await new StoreTester({...testStoreParams, initStore}).run(function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
       yield waitForCall(caller);
     });
@@ -577,7 +576,7 @@ describe('store with saga and reducer', function () {
       variable = 'hello';
       yield put(sliceActions.setErrorStatus());
     });
-    const {actions, state, error} = await testStore({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await new StoreTester({...testStoreParams, initStore}).run(function* () {
       const {state, actions} = yield waitFor(() => variable === 'hello');
 
       expect(variable).toBe('hello');
