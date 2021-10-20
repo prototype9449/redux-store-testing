@@ -1,10 +1,9 @@
-import {createCaller} from '../createCaller';
-
-const originalSetTimeout = setTimeout;
-
+import {configureStore, createSlice} from '@reduxjs/toolkit';
+import createSagaMiddleware from 'redux-saga';
+import {Saga} from '@redux-saga/types';
+import {call, delay, put, take} from 'redux-saga/effects';
 import {applyMiddleware, Store, StoreEnhancer} from 'redux';
 import {
-  StoreTester,
   createActionLogger,
   dispatchAction,
   waitForAction,
@@ -13,15 +12,12 @@ import {
   waitForCall,
   waitForState,
   waitFor,
-  testStore,
+  createTest,
 } from '../';
-import {configureStore, createSlice} from '@reduxjs/toolkit';
-import createSagaMiddleware from 'redux-saga';
-import {Saga} from '@redux-saga/types';
-import {call, delay, put, take} from 'redux-saga/effects';
+import {createCaller} from '../createCaller';
 import {runAsyncEffect} from '../runAsyncEffect';
 
-describe('store with saga and reducer', function () {
+describe('store tester with saga and reducer should', function () {
   afterEach(() => {
     jest.useRealTimers();
   });
@@ -30,7 +26,7 @@ describe('store with saga and reducer', function () {
     status: 'C',
     number: 0,
   };
-  type InitialState = typeof initialState;
+  type ReducerState = typeof initialState;
   const {actions: sliceActions, reducer} = createSlice({
     name: 'default',
     initialState,
@@ -52,8 +48,8 @@ describe('store with saga and reducer', function () {
     errorTimoutMs: 10,
   };
 
-  const getInitStoreFunction = (rootSaga: Saga) =>
-    function initStore(listener: ActionListener): Store<InitialState> {
+  const getInitStoreFunction = (rootSaga: Saga): ((listener: ActionListener<ReducerState>) => Store<ReducerState>) =>
+    function initStore(listener: ActionListener<ReducerState>): Store<ReducerState> {
       const sagaMiddleware = createSagaMiddleware();
       const enhancers: StoreEnhancer[] = [applyMiddleware(sagaMiddleware), createActionLogger(listener)];
       const store = configureStore({
@@ -67,24 +63,24 @@ describe('store with saga and reducer', function () {
       return store;
     };
 
-  it('should catch actions when saga dispatches them synchronously when initializing', async () => {
+  it('catch actions when saga dispatches them synchronously when initializing', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
       yield put(sliceActions.setErrorStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run();
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run();
 
     expect(actions).toEqual([sliceActions.setOkStatus(), sliceActions.setErrorStatus()]);
     expect(state.status).toBe('Error');
     expect(error).toBeUndefined();
   });
 
-  it('should catch action dispatched in saga when action type is passed to waitForAction', async () => {
+  it('catch action dispatched in saga when action type is passed to waitForAction', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore<InitialState>({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 
@@ -93,12 +89,12 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should catch action dispatched in saga when predicate is passed to waitForAction', async () => {
+  it('catch action dispatched in saga when predicate is passed to waitForAction', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForAction(action => action.type === sliceActions.setOkStatus.type);
     });
 
@@ -107,15 +103,15 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should catch the third incrementValue action and stop the test', async () => {
+  it('catch the third incrementValue action and stop the test', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.incrementValue());
       yield put(sliceActions.incrementValue());
       yield put(sliceActions.incrementValue());
       yield put(sliceActions.incrementValue());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForAction((action, actions) => actions.length === 3);
     });
 
@@ -128,15 +124,14 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should catch actions until waited one in passed function', async () => {
+  it('catch actions until waited one in passed function', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
       yield put(sliceActions.setErrorStatus());
       yield put(sliceActions.incrementValue());
     });
 
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForAction(sliceActions.setErrorStatus.type);
     });
 
@@ -145,14 +140,13 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should wait for state change and then action if one action leads to this', async () => {
+  it('wait for state change and then action if one action leads to this', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
       yield put(sliceActions.setErrorStatus());
     });
 
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForState(state => state.status === 'Error');
       yield waitForAction(sliceActions.setErrorStatus.type);
     });
@@ -162,14 +156,13 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should wait for action and then state change if one action leads to this', async () => {
+  it('wait for action and then state change if one action leads to this', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
       yield put(sliceActions.setErrorStatus());
     });
 
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForAction(sliceActions.setErrorStatus.type);
       yield waitForState(state => state.status === 'Error');
     });
@@ -179,15 +172,14 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should not catch action after last take which accepts dispatched in passed function action', async () => {
+  it('not catch action after last take which accepts dispatched in passed function action', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield take(sliceActions.setOkStatus.type);
       yield take(sliceActions.setOkStatus.type);
       yield put(sliceActions.setErrorStatus());
     });
 
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield dispatchAction(sliceActions.setOkStatus());
     });
@@ -197,14 +189,13 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should dispatch action right after put in saga', async () => {
+  it('dispatch action right after put in saga', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield take(sliceActions.incrementValue.type);
       yield put(sliceActions.setErrorStatus());
     });
 
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield dispatchAction(sliceActions.incrementValue());
       yield dispatchAction(sliceActions.setOkStatus());
     });
@@ -214,15 +205,15 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should catch actions until delay when saga dispatches them synchronously when initializing', async () => {
+  it('catch actions until delay when saga dispatches them synchronously when initializing', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
       yield put(sliceActions.setErrorStatus());
       yield delay(1);
       yield put(sliceActions.incrementValue());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run();
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run();
 
     expect(actions).toEqual([sliceActions.setOkStatus(), sliceActions.setErrorStatus()]);
     expect(state.status).toBe('Error');
@@ -230,12 +221,12 @@ describe('store with saga and reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should not catch action, which is dispatched in test generator after delay', async () => {
+  it('not catch action, which is dispatched in test generator after delay', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield delay(100);
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForAction(sliceActions.setOkStatus.type);
       yield dispatchAction(sliceActions.setErrorStatus());
@@ -246,15 +237,15 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should dispatch action before delay when waitForMs is less than delay time', async () => {
+  it('dispatch action before delay when waitForMs is less than delay time', async () => {
     jest.useFakeTimers();
 
     const initStore = getInitStoreFunction(function* () {
       yield delay(100);
       yield put(sliceActions.setErrorStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForMs(9, () => {
         jest.advanceTimersByTime(100);
       });
@@ -268,15 +259,15 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Error');
   });
 
-  it('should dispatch action before delay when waitForMs is less than delay time when run timer is inside runAsyncEffect', async () => {
+  it('dispatch action before delay when waitForMs is less than delay time when run timer is inside runAsyncEffect', async () => {
     jest.useFakeTimers();
 
     const initStore = getInitStoreFunction(function* () {
       yield delay(100);
       yield put(sliceActions.setErrorStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       runAsyncEffect(() => {
         jest.advanceTimersByTime(100);
       });
@@ -290,7 +281,7 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Error');
   });
 
-  it('should wait for call', async () => {
+  it('wait for call', async () => {
     const caller = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
       caller();
@@ -301,8 +292,8 @@ describe('store with saga and reducer', function () {
       yield call(mocked, 'fsdf');
       yield put(sliceActions.setOkStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller);
       yield waitForAction(sliceActions.setOkStatus.type);
     });
@@ -312,7 +303,7 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should wait for caller to be called n times', async () => {
+  it('wait for caller to be called n times', async () => {
     const caller = createCaller('testCaller');
     const initStore = getInitStoreFunction(function* () {
       caller();
@@ -320,8 +311,8 @@ describe('store with saga and reducer', function () {
       caller();
       yield dispatchAction(sliceActions.setOkStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {error, actions} = await s.run(function* () {
+
+    const {error, actions} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller, {times: 3});
     });
 
@@ -330,7 +321,7 @@ describe('store with saga and reducer', function () {
     expect(actions).toEqual([]);
   });
 
-  it('should wait for caller to be called n times if caller is called before test', async () => {
+  it('wait for caller to be called n times if caller is called before test', async () => {
     const caller = createCaller('testCaller');
     caller();
     caller();
@@ -338,8 +329,8 @@ describe('store with saga and reducer', function () {
     const initStore = getInitStoreFunction(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {error, actions} = await s.run(function* () {
+
+    const {error, actions} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller, {times: 3});
     });
 
@@ -348,7 +339,7 @@ describe('store with saga and reducer', function () {
     expect(actions).toEqual([]);
   });
 
-  it('should wait for call if it is called on initialization', async () => {
+  it('wait for call if it is called on initialization', async () => {
     const caller = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
       caller();
@@ -358,8 +349,8 @@ describe('store with saga and reducer', function () {
       yield call(mocked, 'fsdf');
       yield put(sliceActions.setOkStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller);
       yield waitForAction(sliceActions.setOkStatus.type);
     });
@@ -369,7 +360,7 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should wait for 2 callers in sequence if they are called on initialization', async () => {
+  it('wait for 2 callers in sequence if they are called on initialization', async () => {
     const caller1 = createCaller();
     const caller2 = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
@@ -381,8 +372,8 @@ describe('store with saga and reducer', function () {
       yield call(mocked, 'fsdf');
       yield put(sliceActions.setOkStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller1);
       yield waitForCall(caller2);
       yield waitForAction(sliceActions.setOkStatus.type);
@@ -393,7 +384,7 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should wait for caller right after waitForAction', async () => {
+  it('wait for caller right after waitForAction', async () => {
     const caller1 = createCaller();
     const caller2 = createCaller();
     const mocked1 = jest.fn().mockImplementation(() => {
@@ -410,8 +401,7 @@ describe('store with saga and reducer', function () {
       yield call(mocked2);
       yield put(sliceActions.setErrorStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller1);
       yield waitForAction(sliceActions.setOkStatus.type);
       yield waitForCall(caller2);
@@ -423,13 +413,13 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Error');
   });
 
-  it('should not wait for already called caller', async () => {
+  it('not wait for already called caller', async () => {
     const caller = createCaller();
     caller();
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore<InitialState>({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller);
       yield waitForAction(sliceActions.setOkStatus.type);
     });
@@ -439,13 +429,13 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should not wait for already called caller when there are 2 of them', async () => {
+  it('not wait for already called caller when there are 2 of them', async () => {
     const caller = createCaller();
     caller();
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore<InitialState>({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller);
       yield waitForCall(caller);
       yield waitForAction(sliceActions.setOkStatus.type);
@@ -456,14 +446,14 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should not wait for already called caller if there is a delay before', async () => {
+  it('not wait for already called caller if there is a delay before', async () => {
     const caller = createCaller();
     caller();
     const initStore = getInitStoreFunction(function* () {
       yield delay(1);
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore<InitialState>({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller);
       yield waitForAction(sliceActions.setOkStatus.type);
     });
@@ -473,13 +463,13 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should not wait for already called caller after waiting for action', async () => {
+  it('not wait for already called caller after waiting for action', async () => {
     const caller = createCaller();
     caller();
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
     });
-    const {actions, state, error} = await testStore<InitialState>({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
       yield waitForCall(caller);
     });
@@ -489,7 +479,7 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should wait for 2 callers in sequence if they are called after delay', async () => {
+  it('wait for 2 callers in sequence if they are called after delay', async () => {
     const caller1 = createCaller();
     const caller2 = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
@@ -502,8 +492,7 @@ describe('store with saga and reducer', function () {
       yield call(mocked, 'fsdf');
       yield put(sliceActions.setOkStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore, originalSetTimeout});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller1);
       yield waitForCall(caller2);
       yield waitForAction(sliceActions.setOkStatus.type);
@@ -514,19 +503,18 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should wait for call and dispatched by store tester async action should come after all dispatched actions in saga', async () => {
+  it('wait for call and dispatched by store tester async action should come after all dispatched actions in saga', async () => {
     const caller = createCaller();
     const mocked = jest.fn().mockImplementation(() => {
       caller();
       return 'fsdf';
     });
     const initStore = getInitStoreFunction(function* () {
-      yield delay(1);
+      yield delay(0);
       yield call(mocked, 'fsdf');
       yield put(sliceActions.setOkStatus());
     });
-    const s = new StoreTester<InitialState>({...testStoreParams, initStore, originalSetTimeout});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForCall(caller);
       yield dispatchAction(sliceActions.setErrorStatus());
     });
@@ -536,13 +524,12 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Error');
   });
 
-  it('should wait for action and dispatched by store tester async action should come after all dispatched actions in saga', async () => {
+  it('wait for action and dispatched by store tester async action should come after all dispatched actions in saga', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
       yield put(sliceActions.setErrorStatus());
     });
-    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
       yield dispatchAction(sliceActions.incrementValue());
     });
@@ -552,13 +539,12 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Error');
   });
 
-  it('should wait for condition in state', async () => {
+  it('wait for condition in state', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
       yield put(sliceActions.setErrorStatus());
     });
-    const s = new StoreTester<InitialState>({initStore, originalSetTimeout});
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       const {state, actions} = yield waitForState(state => state.status === 'Error');
       expect(state.status).toBe('Error');
       expect(actions).toEqual([sliceActions.setOkStatus(), sliceActions.setErrorStatus()]);
@@ -570,16 +556,15 @@ describe('store with saga and reducer', function () {
     expect(state.status).toBe('Error');
   });
 
-  it('should wait for condition on external variable', async () => {
+  it('wait for condition on external variable', async () => {
     let variable = 'example';
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());
       variable = 'hello';
       yield put(sliceActions.setErrorStatus());
     });
-    const {actions, state, error} = await testStore<InitialState>({...testStoreParams, initStore}, function* () {
+    const {actions, state, error} = await createTest({...testStoreParams, initStore}).run(function* () {
       const {state, actions} = yield waitFor(() => variable === 'hello');
-
       expect(variable).toBe('hello');
       expect(state.status).toBe('Error');
       expect(actions).toEqual([sliceActions.setOkStatus(), sliceActions.setErrorStatus()]);

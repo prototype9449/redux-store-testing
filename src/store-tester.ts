@@ -4,13 +4,14 @@ import {waitForMsAndResolve} from './waitForMsAndResolve';
 import {waitForExternalCondition} from './waitForExternalCondition';
 import {printError} from './printError';
 import {DEFAULT_TIMEOUT_ERROR} from './constants';
+import {ActionListener} from "./actionLogger";
 
 const defaultSetTimeout = setTimeout;
 
 export type StoreTesterParams<T> = {
   originalSetTimeout?: typeof setTimeout;
   initializeFunction?: (store: Store<T>) => () => void;
-  initStore: (listener: (action: Action, state: T) => void) => Store<T>;
+  initStore: (listener: ActionListener<T>) => Store<T>;
   errorTimoutMs?: number;
   throwOnTimeout?: boolean;
 };

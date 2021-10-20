@@ -1,6 +1,6 @@
 export * from './effects'
-export * from './store-tester'
 export * from './actionLogger'
 export * from './createCaller'
-export * from './testStore'
+export * from './createTest'
 export * from './runAsyncEffect'
+export {StoreTesterParams, StoreResult} from './store-tester'

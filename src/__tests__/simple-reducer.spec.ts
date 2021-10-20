@@ -1,6 +1,5 @@
 import {Store, StoreEnhancer} from 'redux';
 import {
-  StoreTester,
   createActionLogger,
   dispatchAction,
   waitForAction,
@@ -10,16 +9,16 @@ import {
   waitForState,
   waitForCall,
   waitFor,
-  testStore,
-  StoreTesterParams,
   waitForInitializeFunction,
   waitForSyncWorkToFinish,
+  createTest,
+  StoreTesterParams,
 } from '../';
 import {configureStore, createSlice} from '@reduxjs/toolkit';
 import {createCaller} from '../createCaller';
 import {runAsyncEffect} from '../runAsyncEffect';
 
-describe('store with simple reducer', function () {
+describe('store tester with reducer should', function () {
   const initialState = {
     status: 'C',
     number: 0,
@@ -41,7 +40,7 @@ describe('store with simple reducer', function () {
     },
   });
 
-  function initStore(listener: ActionListener) {
+  function initStore(listener: ActionListener<InitialState>) {
     const enhancers: StoreEnhancer[] = [createActionLogger(listener)];
 
     return configureStore({
@@ -53,9 +52,8 @@ describe('store with simple reducer', function () {
 
   const params = {initStore, errorTimoutMs: 10, throwOnTimeout: false};
 
-  it('should catch 1 action and produce correct state', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {actions, state, error} = await s.run(function* () {
+  it('catch 1 action and produce correct state', async () => {
+    const {actions, state, error} = await createTest(params).run(function* () {
       const {
         state: {status},
         actions,
@@ -70,9 +68,8 @@ describe('store with simple reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should catch 2 actions and increment number up to 2', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {actions, state, error} = await s.run(function* () {
+  it('catch 2 actions and increment number up to 2', async () => {
+    const {actions, state, error} = await createTest(params).run(function* () {
       const result1 = yield dispatchAction(sliceActions.incrementValue());
 
       expect(result1.state.number).toBe(1);
@@ -90,10 +87,9 @@ describe('store with simple reducer', function () {
     expect(error).toBeUndefined();
   });
 
-  it('should fail with timeout when waiting for dispatched action', async () => {
-    const s = new StoreTester<InitialState>(params);
+  it('fail with timeout when waiting for dispatched action', async () => {
     let wasRestCodeRun = false;
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest(params).run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForAction(sliceActions.setOkStatus.type);
       wasRestCodeRun = true;
@@ -106,10 +102,9 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should fail with timeout when waiting for dispatched action after waiting several ms', async () => {
-    const s = new StoreTester<InitialState>(params);
+  it('fail with timeout when waiting for dispatched action after waiting several ms', async () => {
     let wasRestCodeRun = false;
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest(params).run(function* () {
       yield waitForMs(10);
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForAction(sliceActions.setOkStatus.type);
@@ -123,11 +118,10 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should fail with timeout when waiting for dispatched action after waiting promise', async () => {
-    const s = new StoreTester<InitialState>(params);
+  it('fail with timeout when waiting for dispatched action after waiting promise', async () => {
     let wasRestCodeRun = false;
 
-    const {actions, state, error} = await s.run(function* () {
+    const {actions, state, error} = await createTest(params).run(function* () {
       yield waitForPromise(
         new Promise<void>(res => {
           setTimeout(() => res(), 10);
@@ -145,9 +139,8 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should not catch action dispatched by store tester', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error} = await s.run(function* () {
+  it('not catch action dispatched by store tester', async () => {
+    const {error} = await createTest(params).run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForAction(sliceActions.setOkStatus.type);
     });
@@ -156,9 +149,8 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should wait for state change right after dispatch which leads to this state', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error, state} = await s.run(function* () {
+  it('wait for state change right after dispatch which leads to this state', async () => {
+    const {error, state} = await createTest(params).run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForState(state => state.status === 'Ok');
     });
@@ -167,9 +159,8 @@ describe('store with simple reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should wait for state change right even if no actions are dispatched', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error, state} = await s.run(function* () {
+  it('wait for state change right even if no actions are dispatched', async () => {
+    const {error, state} = await createTest(params).run(function* () {
       yield waitForState(() => true);
     });
 
@@ -177,11 +168,10 @@ describe('store with simple reducer', function () {
     expect(state).toBe(state);
   });
 
-  it('should wait for state change and called caller even if no actions are dispatched', async () => {
-    const s = new StoreTester<InitialState>(params);
+  it('wait for state change and called caller even if no actions are dispatched', async () => {
     const caller = createCaller();
     caller();
-    const {error, state} = await s.run(function* () {
+    const {error, state} = await createTest(params).run(function* () {
       yield waitForState(() => true);
       yield waitForCall(caller);
     });
@@ -190,11 +180,10 @@ describe('store with simple reducer', function () {
     expect(state).toBe(state);
   });
 
-  it('should wait for called caller and state change even if no actions are dispatched', async () => {
-    const s = new StoreTester<InitialState>(params);
+  it('wait for called caller and state change even if no actions are dispatched', async () => {
     const caller = createCaller();
     caller();
-    const {error, state} = await s.run(function* () {
+    const {error, state} = await createTest(params).run(function* () {
       yield waitForCall(caller);
       yield waitForState(() => true);
     });
@@ -203,11 +192,11 @@ describe('store with simple reducer', function () {
     expect(state).toBe(state);
   });
 
-  it('should wait for state change right after waiting for already called caller', async () => {
+  it('wait for state change right after waiting for already called caller', async () => {
     const caller = createCaller();
     caller();
-    const s = new StoreTester<InitialState>(params);
-    const {error, state} = await s.run(function* () {
+
+    const {error, state} = await createTest(params).run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForCall(caller);
       yield waitForState(state => state.status === 'Ok');
@@ -217,9 +206,8 @@ describe('store with simple reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should wait twice for the same state change right after dispatch which leads to this state', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error, state} = await s.run(function* () {
+  it('wait twice for the same state change right after dispatch which leads to this state', async () => {
+    const {error, state} = await createTest(params).run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
       yield waitForState(state => state.status === 'Ok');
       yield waitForState(state => state.status === 'Ok');
@@ -229,9 +217,8 @@ describe('store with simple reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should fail with error when waiting for unknown action', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error} = await s.run(function* () {
+  it('fail with error when waiting for unknown action', async () => {
+    const {error} = await createTest(params).run(function* () {
       yield waitForAction('unknown');
     });
 
@@ -239,9 +226,8 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should fail with error when waiting for caller which will not be called', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error} = await s.run(function* () {
+  it('fail with error when waiting for caller which will not be called', async () => {
+    const {error} = await createTest(params).run(function* () {
       yield waitForCall(createCaller());
     });
 
@@ -249,9 +235,8 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should fail with error when waiting unreachable state', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error} = await s.run(function* () {
+  it('fail with error when waiting unreachable state', async () => {
+    const {error} = await createTest(params).run(function* () {
       yield waitForState(() => false);
     });
 
@@ -259,9 +244,8 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should fail with error when waiting unresolvable promise', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error} = await s.run(function* () {
+  it('fail with error when waiting unresolvable promise', async () => {
+    const {error} = await createTest(params).run(function* () {
       yield waitForPromise(
         new Promise<void>(() => {
           return;
@@ -273,9 +257,8 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should fail with error when waiting longer than error timeout', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error} = await s.run(function* () {
+  it('fail with error when waiting longer than error timeout', async () => {
+    const {error} = await createTest(params).run(function* () {
       yield waitForMs(10000);
     });
 
@@ -283,9 +266,8 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should fail with error when waiting for unreachable condition', async () => {
-    const s = new StoreTester<InitialState>(params);
-    const {error} = await s.run(function* () {
+  it('fail with error when waiting for unreachable condition', async () => {
+    const {error} = await createTest(params).run(function* () {
       yield waitFor(() => false);
     });
 
@@ -293,7 +275,7 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should call initializeFunction before the result of it', async () => {
+  it('call initializeFunction before the result of it', async () => {
     let placeToCall = 'unknown';
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -302,7 +284,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    await testStore<InitialState>(realParams, function* () {
+    await createTest(realParams).run(function* () {
       expect(placeToCall).toBe('unknown');
       yield waitForMs(1);
       expect(placeToCall).toBe('init');
@@ -310,7 +292,7 @@ describe('store with simple reducer', function () {
     });
   });
 
-  it('should call the result of initializeFunction after store tester body', async () => {
+  it('call the result of initializeFunction after store tester body', async () => {
     let wasCalled = false;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -320,14 +302,14 @@ describe('store with simple reducer', function () {
         };
       },
     };
-    await testStore<InitialState>(realParams, function* () {
+    await createTest(realParams).run(function* () {
       expect(wasCalled).toBeFalsy();
       yield waitFor(() => true);
     });
     expect(wasCalled).toBeTruthy();
   });
 
-  it('should catch action dispatched in initializeFunction', async () => {
+  it('catch action dispatched in initializeFunction', async () => {
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       initializeFunction: store => {
@@ -335,7 +317,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error, actions, state} = await testStore<InitialState>(realParams, function* () {
+    const {error, actions, state} = await createTest(realParams).run(function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 
@@ -344,7 +326,7 @@ describe('store with simple reducer', function () {
     expect(state.status).toBe('Ok');
   });
 
-  it('should not catch action and update state when action is dispatched in the result of initializeFunction', async () => {
+  it('not catch action and update state when action is dispatched in the result of initializeFunction', async () => {
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
@@ -354,7 +336,7 @@ describe('store with simple reducer', function () {
         };
       },
     };
-    const {error, actions, state} = await testStore<InitialState>(realParams, function* () {
+    const {error, actions, state} = await createTest(realParams).run(function* () {
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 
@@ -364,7 +346,7 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should wait for caller when it is called in initializeFunction', async () => {
+  it('wait for caller when it is called in initializeFunction', async () => {
     const caller = createCaller();
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -374,7 +356,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore<InitialState>(realParams, function* () {
+    const {error} = await createTest(realParams).run(function* () {
       yield waitForCall(caller);
     });
 
@@ -382,7 +364,7 @@ describe('store with simple reducer', function () {
     expect(caller.wasCalled()).toBeTruthy();
   });
 
-  it('should not wait for caller when it is called in the result of initializeFunction', async () => {
+  it('not wait for caller when it is called in the result of initializeFunction', async () => {
     const caller = createCaller();
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -393,7 +375,7 @@ describe('store with simple reducer', function () {
         };
       },
     };
-    const {error} = await testStore<InitialState>(realParams, function* () {
+    const {error} = await createTest(realParams).run(function* () {
       yield waitForCall(caller);
     });
 
@@ -402,7 +384,7 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should wait for caller when it is called in initializeFunction and when waitForInitializeFunction is used', async () => {
+  it('wait for caller when it is called in initializeFunction and when waitForInitializeFunction is used', async () => {
     const caller = createCaller();
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -412,7 +394,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore<InitialState>(realParams, function* () {
+    const {error} = await createTest(realParams).run(function* () {
       yield waitForInitializeFunction();
       yield waitForCall(caller);
     });
@@ -421,7 +403,7 @@ describe('store with simple reducer', function () {
     expect(caller.wasCalled()).toBeTruthy();
   });
 
-  it('should wait for caller when it is called in initializeFunction and when there are 2 waitForInitializeFunction used before waitForCall', async () => {
+  it('wait for caller when it is called in initializeFunction and when there are 2 waitForInitializeFunction used before waitForCall', async () => {
     const caller = createCaller();
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -431,7 +413,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore<InitialState>(realParams, function* () {
+    const {error} = await createTest(realParams).run(function* () {
       yield waitForInitializeFunction();
       yield waitForInitializeFunction();
       yield waitForCall(caller);
@@ -441,7 +423,7 @@ describe('store with simple reducer', function () {
     expect(caller.wasCalled()).toBeTruthy();
   });
 
-  it('should catch action in subscribe if waitForInitializeFunction is used', async () => {
+  it('catch action in subscribe if waitForInitializeFunction is used', async () => {
     let wasSubscribeCalled = false;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -453,7 +435,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error, actions} = await testStore<InitialState>(realParams, function* () {
+    const {error, actions} = await createTest(realParams).run(function* () {
       yield waitForInitializeFunction();
       yield dispatchAction(sliceActions.setOkStatus());
     });
@@ -463,7 +445,7 @@ describe('store with simple reducer', function () {
     expect(actions).toEqual([sliceActions.setOkStatus()]);
   });
 
-  it('should catch action in subscribe if waitForInitializeFunction is used twice', async () => {
+  it('catch action in subscribe if waitForInitializeFunction is used twice', async () => {
     let wasSubscribeCalled = false;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -475,7 +457,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error, actions} = await testStore<InitialState>(realParams, function* () {
+    const {error, actions} = await createTest(realParams).run(function* () {
       yield waitForInitializeFunction();
       yield waitForInitializeFunction();
       yield dispatchAction(sliceActions.setOkStatus());
@@ -486,7 +468,7 @@ describe('store with simple reducer', function () {
     expect(wasSubscribeCalled).toBeTruthy();
   });
 
-  it('should call subscribe listener if action dispatched without waitForInitializeFunction', async () => {
+  it('call subscribe listener if action dispatched without waitForInitializeFunction', async () => {
     let wasSubscribeCalled = false;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -498,7 +480,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error, actions} = await testStore<InitialState>(realParams, function* () {
+    const {error, actions} = await createTest(realParams).run(function* () {
       yield dispatchAction(sliceActions.setOkStatus());
     });
 
@@ -507,7 +489,7 @@ describe('store with simple reducer', function () {
     expect(wasSubscribeCalled).toBeTruthy();
   });
 
-  it('should not log dispatched in unmount function action when waitForSyncWorkToFinish is used at the end', async () => {
+  it('not log dispatched in unmount function action when waitForSyncWorkToFinish is used at the end', async () => {
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
@@ -517,7 +499,7 @@ describe('store with simple reducer', function () {
         };
       },
     };
-    const {actions, error} = await testStore<InitialState>(realParams, function* () {
+    const {actions, error} = await createTest(realParams).run(function* () {
       yield dispatchAction(sliceActions.setErrorStatus());
       yield waitForSyncWorkToFinish();
     });
@@ -526,7 +508,7 @@ describe('store with simple reducer', function () {
     expect(actions).toEqual([sliceActions.setErrorStatus()]);
   });
 
-  it('should not wait for action dispatched in initializeFunction if waitForInitializeFunction is used first', async () => {
+  it('not wait for action dispatched in initializeFunction if waitForInitializeFunction is used first', async () => {
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
@@ -535,7 +517,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {actions, error} = await testStore<InitialState>(realParams, function* () {
+    const {actions, error} = await createTest(realParams).run(function* () {
       yield waitForInitializeFunction();
       yield waitForAction(sliceActions.setOkStatus.type);
     });
@@ -545,7 +527,7 @@ describe('store with simple reducer', function () {
     expect(actions).toEqual([sliceActions.setOkStatus()]);
   });
 
-  it('should log action when it is dispatched in resolved promise in initializeFunction when waitForSyncWorkToFinish is present at the end', async () => {
+  it('log action when it is dispatched in resolved promise in initializeFunction when waitForSyncWorkToFinish is present at the end', async () => {
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
@@ -554,7 +536,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {actions, error} = await testStore<InitialState>(realParams, function* () {
+    const {actions, error} = await createTest(realParams).run(function* () {
       yield waitForSyncWorkToFinish();
     });
 
@@ -562,14 +544,14 @@ describe('store with simple reducer', function () {
     expect(actions).toEqual([sliceActions.setOkStatus()]);
   });
 
-  it('should run timer yielded in test body', async () => {
+  it('run timer yielded in test body', async () => {
     jest.useFakeTimers();
 
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
     };
-    const {actions, error} = await testStore<InitialState>(realParams, function* () {
+    const {actions, error} = await createTest(realParams).run(function* () {
       runAsyncEffect(() => {
         jest.advanceTimersByTime(30000);
       });
@@ -583,14 +565,14 @@ describe('store with simple reducer', function () {
     jest.useRealTimers();
   });
 
-  it('should run only first timer yielded in test body', async () => {
+  it('run only first timer yielded in test body', async () => {
     jest.useFakeTimers();
 
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
     };
-    const {error} = await testStore<InitialState>(realParams, function* () {
+    const {error} = await createTest(realParams).run(function* () {
       runAsyncEffect(() => {
         jest.runAllTimers();
       });
@@ -604,7 +586,7 @@ describe('store with simple reducer', function () {
     jest.useRealTimers();
   });
 
-  it('should wait for action dispatched in runAsyncEffect', async () => {
+  it('wait for action dispatched in runAsyncEffect', async () => {
     let storeInstance: Store<InitialState>;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -614,7 +596,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {actions, error} = await testStore<InitialState>(realParams, function* () {
+    const {actions, error} = await createTest(realParams).run(function* () {
       runAsyncEffect(() => {
         storeInstance.dispatch(sliceActions.setOkStatus());
       });
@@ -625,7 +607,7 @@ describe('store with simple reducer', function () {
     expect(actions).toEqual([sliceActions.setOkStatus()]);
   });
 
-  it('should wait for several actions dispatched in runAsyncEffect', async () => {
+  it('wait for several actions dispatched in runAsyncEffect', async () => {
     let storeInstance: Store<InitialState>;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -635,7 +617,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {actions, error} = await testStore<InitialState>(realParams, function* () {
+    const {actions, error} = await createTest(realParams).run(function* () {
       runAsyncEffect(() => {
         storeInstance.dispatch(sliceActions.setOkStatus());
         storeInstance.dispatch(sliceActions.setErrorStatus());
@@ -648,7 +630,7 @@ describe('store with simple reducer', function () {
     expect(actions).toEqual([sliceActions.setOkStatus(), sliceActions.setErrorStatus()]);
   });
 
-  it('should not catch the action dispatched in runAsyncEffect if action is waited after waitForSyncWorkToFinish', async () => {
+  it('not catch the action dispatched in runAsyncEffect if action is waited after waitForSyncWorkToFinish', async () => {
     let storeInstance: Store<InitialState>;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -658,7 +640,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore<InitialState>(realParams, function* () {
+    const {error} = await createTest(realParams).run(function* () {
       runAsyncEffect(() => {
         storeInstance.dispatch(sliceActions.setOkStatus());
       });
@@ -670,7 +652,7 @@ describe('store with simple reducer', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('should not catch the action dispatched after Promise.resolve in runAsyncEffect if action is waited after waitForSyncWorkToFinish', async () => {
+  it('not catch the action dispatched after Promise.resolve in runAsyncEffect if action is waited after waitForSyncWorkToFinish', async () => {
     let storeInstance: Store<InitialState>;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -680,7 +662,7 @@ describe('store with simple reducer', function () {
         return () => void 0;
       },
     };
-    const {error} = await testStore<InitialState>(realParams, function* () {
+    const {error} = await createTest(realParams).run(function* () {
       runAsyncEffect(() => {
         Promise.resolve().then(() => storeInstance.dispatch(sliceActions.setOkStatus()));
       });
