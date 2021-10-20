@@ -20,7 +20,6 @@ import createSagaMiddleware from 'redux-saga';
 import {Saga} from '@redux-saga/types';
 import {call, delay, put, take} from 'redux-saga/effects';
 import {runAsyncEffect} from '../runAsyncEffect';
-import { StoreResult } from '../store-tester';
 
 describe('store with saga and reducer', function () {
   afterEach(() => {
@@ -560,7 +559,7 @@ describe('store with saga and reducer', function () {
     });
     const s = new StoreTester({initStore, originalSetTimeout});
     const {actions, state, error} = await s.run(function* () {
-      const {state, actions} = (yield waitForState(state => state.status === 'Error')) as StoreResult<InitialState>;
+      const {state, actions} = yield waitForState(state => state.status === 'Error');
       expect(state.status).toBe('Error');
       expect(actions).toEqual([sliceActions.setOkStatus(), sliceActions.setErrorStatus()]);
       yield dispatchAction(sliceActions.incrementValue());
@@ -579,7 +578,7 @@ describe('store with saga and reducer', function () {
       yield put(sliceActions.setErrorStatus());
     });
     const {actions, state, error} = await testStore({...testStoreParams, initStore}, function* () {
-      const {state, actions} = (yield waitFor(() => variable === 'hello')) as StoreResult<InitialState>;
+      const {state, actions} = yield waitFor(() => variable === 'hello');
 
       expect(variable).toBe('hello');
       expect(state.status).toBe('Error');
