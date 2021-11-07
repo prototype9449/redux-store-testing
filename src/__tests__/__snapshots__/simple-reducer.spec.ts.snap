@@ -98,24 +98,24 @@ Effects:
 1) dispatchAction: Action type - default/setOkStatus"
 `;
 
-exports[`store tester with reducer should not catch the action dispatched after Promise.resolve in runAsyncEffect if action is waited after waitForSyncWorkToFinish 1`] = `
+exports[`store tester with reducer should not catch the action dispatched after Promise.resolve in runAsyncEffect if action is waited after waitForMicrotasksToFinish 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
 Caught actions: 
 1) default/setOkStatus
         
 Effects: 
-1) waitForSyncWorkToFinish"
+1) waitForMicrotasksToFinish"
 `;
 
-exports[`store tester with reducer should not catch the action dispatched in runAsyncEffect if action is waited after waitForSyncWorkToFinish 1`] = `
+exports[`store tester with reducer should not catch the action dispatched in runAsyncEffect if action is waited after waitForMicrotasksToFinish 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
 Caught actions: 
 1) default/setOkStatus
         
 Effects: 
-1) waitForSyncWorkToFinish"
+1) waitForMicrotasksToFinish"
 `;
 
 exports[`store tester with reducer should not log and wait for action dispatched in initializeFunction if skipSyncActionDispatchesInInitializeFunction is true 1`] = `

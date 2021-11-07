@@ -246,7 +246,7 @@ export class StoreTester<T> {
           this.isWaitingForPromise = false;
           break;
         }
-        case StoreActionType.waitForSyncWorkToFinish: {
+        case StoreActionType.waitForMicrotasksToFinish: {
           this.isWaitingForPromise = true;
           await waitForMsAndResolve({ms: 0});
           this.isWaitingForPromise = false;

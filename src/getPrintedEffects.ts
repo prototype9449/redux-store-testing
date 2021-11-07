@@ -28,7 +28,7 @@ export const printEffect = (effect: StoreAction<unknown>): string => {
     case StoreActionType.waitForMs: {
       return `${effect.type}: Ms - ${effect.ms}, Callback - ${effect.callback?.name ?? 'empty'}`;
     }
-    case StoreActionType.waitForSyncWorkToFinish: {
+    case StoreActionType.waitForMicrotasksToFinish: {
       return `${effect.type}`;
     }
     default: {

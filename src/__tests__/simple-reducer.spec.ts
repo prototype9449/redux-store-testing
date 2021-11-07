@@ -9,7 +9,7 @@ import {
   waitForState,
   waitForCall,
   waitFor,
-  waitForSyncWorkToFinish,
+  waitForMicrotasksToFinish,
   createTest,
   StoreTesterParams,
 } from '../';
@@ -445,7 +445,7 @@ describe('store tester with reducer should', function () {
     expect(wasSubscribeCalled).toBeTruthy();
   });
 
-  it('not log dispatched in unmount function action when waitForSyncWorkToFinish is used at the end', async () => {
+  it('not log dispatched in unmount function action when waitForMicrotasksToFinish is used at the end', async () => {
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
@@ -457,7 +457,7 @@ describe('store tester with reducer should', function () {
     };
     const {actions, error} = await createTest(realParams).run(function* () {
       yield dispatchAction(sliceActions.setErrorStatus());
-      yield waitForSyncWorkToFinish();
+      yield waitForMicrotasksToFinish();
     });
 
     expect(error).toBeUndefined();
@@ -483,7 +483,7 @@ describe('store tester with reducer should', function () {
     expect(actions).toEqual([]);
   });
 
-  it('log action when it is dispatched in resolved promise in initializeFunction when waitForSyncWorkToFinish is present at the end', async () => {
+  it('log action when it is dispatched in resolved promise in initializeFunction when waitForMicrotasksToFinish is present at the end', async () => {
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
@@ -493,7 +493,7 @@ describe('store tester with reducer should', function () {
       },
     };
     const {actions, error} = await createTest(realParams).run(function* () {
-      yield waitForSyncWorkToFinish();
+      yield waitForMicrotasksToFinish();
     });
 
     expect(error).toBeUndefined();
@@ -586,7 +586,7 @@ describe('store tester with reducer should', function () {
     expect(actions).toEqual([sliceActions.setOkStatus(), sliceActions.setErrorStatus()]);
   });
 
-  it('not catch the action dispatched in runAsyncEffect if action is waited after waitForSyncWorkToFinish', async () => {
+  it('not catch the action dispatched in runAsyncEffect if action is waited after waitForMicrotasksToFinish', async () => {
     let storeInstance: Store<InitialState>;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -600,7 +600,7 @@ describe('store tester with reducer should', function () {
       runAsyncEffect(() => {
         storeInstance.dispatch(sliceActions.setOkStatus());
       });
-      yield waitForSyncWorkToFinish();
+      yield waitForMicrotasksToFinish();
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 
@@ -608,7 +608,7 @@ describe('store tester with reducer should', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('not catch the action dispatched after Promise.resolve in runAsyncEffect if action is waited after waitForSyncWorkToFinish', async () => {
+  it('not catch the action dispatched after Promise.resolve in runAsyncEffect if action is waited after waitForMicrotasksToFinish', async () => {
     let storeInstance: Store<InitialState>;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
@@ -622,7 +622,7 @@ describe('store tester with reducer should', function () {
       runAsyncEffect(() => {
         Promise.resolve().then(() => storeInstance.dispatch(sliceActions.setOkStatus()));
       });
-      yield waitForSyncWorkToFinish();
+      yield waitForMicrotasksToFinish();
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 

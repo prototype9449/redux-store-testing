@@ -15,8 +15,8 @@ export type StoreWaitForAction = {
   actionOrPredicate: string | StoreActionPredicate;
 };
 
-export type StoreWaitForSyncWorkToFinish = {
-  type: StoreActionType.waitForSyncWorkToFinish;
+export type StorewaitForMicrotasksToFinish = {
+  type: StoreActionType.waitForMicrotasksToFinish;
 };
 
 export type StoreWaitForMs = {
@@ -54,7 +54,7 @@ export type StoreAction<T> =
   | StoreWaitForPromise
   | StoreWaitForCaller
   | StoreWaitFor
-  | StoreWaitForSyncWorkToFinish
+  | StorewaitForMicrotasksToFinish
   | StoreWaitForStoreState<T>;
 
 export enum StoreActionType {
@@ -65,7 +65,7 @@ export enum StoreActionType {
   waitForCall = 'waitForCall',
   waitForStoreState = 'waitForStoreState',
   waitFor = 'waitFor',
-  waitForSyncWorkToFinish = 'waitForSyncWorkToFinish',
+  waitForMicrotasksToFinish = 'waitForMicrotasksToFinish',
 }
 
 type StateCondition<T> = (state: T, actions: Action[]) => boolean;
@@ -76,8 +76,8 @@ export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => 
   callback,
 });
 
-export const waitForSyncWorkToFinish = (): StoreWaitForSyncWorkToFinish => ({
-  type: StoreActionType.waitForSyncWorkToFinish,
+export const waitForMicrotasksToFinish = (): StorewaitForMicrotasksToFinish => ({
+  type: StoreActionType.waitForMicrotasksToFinish,
 });
 
 export const waitForPromise = (promise: Promise<void>): StoreWaitForPromise => ({
