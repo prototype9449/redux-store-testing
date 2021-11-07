@@ -15,10 +15,6 @@ export type StoreWaitForAction = {
   actionOrPredicate: string | StoreActionPredicate;
 };
 
-export type StoreWaitForInitializeFunction = {
-  type: StoreActionType.waitForInitializeFunction;
-};
-
 export type StoreWaitForSyncWorkToFinish = {
   type: StoreActionType.waitForSyncWorkToFinish;
 };
@@ -58,7 +54,6 @@ export type StoreAction<T> =
   | StoreWaitForPromise
   | StoreWaitForCaller
   | StoreWaitFor
-  | StoreWaitForInitializeFunction
   | StoreWaitForSyncWorkToFinish
   | StoreWaitForStoreState<T>;
 
@@ -70,7 +65,6 @@ export enum StoreActionType {
   waitForCall = 'waitForCall',
   waitForStoreState = 'waitForStoreState',
   waitFor = 'waitFor',
-  waitForInitializeFunction = 'waitForInitializeFunction',
   waitForSyncWorkToFinish = 'waitForSyncWorkToFinish',
 }
 
@@ -80,10 +74,6 @@ export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => 
   type: StoreActionType.waitForMs,
   ms,
   callback,
-});
-
-export const waitForInitializeFunction = (): StoreWaitForInitializeFunction => ({
-  type: StoreActionType.waitForInitializeFunction,
 });
 
 export const waitForSyncWorkToFinish = (): StoreWaitForSyncWorkToFinish => ({

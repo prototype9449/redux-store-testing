@@ -118,14 +118,12 @@ Effects:
 1) waitForSyncWorkToFinish"
 `;
 
-exports[`store tester with reducer should not wait for action dispatched in initializeFunction if waitForInitializeFunction is used first 1`] = `
+exports[`store tester with reducer should not log and wait for action dispatched in initializeFunction if skipSyncActionDispatchesInInitializeFunction is true 1`] = `
 "Effect waitForActionType: Type - default/setOkStatus was not handled
 
-Caught actions: 
-1) default/setOkStatus
+No actions caught
         
-Effects: 
-1) waitForInitializeFunction"
+No effects handled"
 `;
 
 exports[`store tester with reducer should not wait for caller when it is called in the result of initializeFunction 1`] = `

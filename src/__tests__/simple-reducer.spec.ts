@@ -9,7 +9,6 @@ import {
   waitForState,
   waitForCall,
   waitFor,
-  waitForInitializeFunction,
   waitForSyncWorkToFinish,
   createTest,
   StoreTesterParams,
@@ -384,18 +383,18 @@ describe('store tester with reducer should', function () {
     expect(error).toMatchSnapshot();
   });
 
-  it('wait for caller when it is called in initializeFunction and when waitForInitializeFunction is used', async () => {
+  it('wait for caller when it is called in initializeFunction and when skipSyncActionDispatchesInInitializeFunction is true', async () => {
     const caller = createCaller();
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
+      skipSyncActionDispatchesInInitializeFunction: true,
       initializeFunction: () => {
         caller();
         return () => void 0;
       },
     };
     const {error} = await createTest(realParams).run(function* () {
-      yield waitForInitializeFunction();
       yield waitForCall(caller);
     });
 
@@ -403,31 +402,12 @@ describe('store tester with reducer should', function () {
     expect(caller.wasCalled()).toBeTruthy();
   });
 
-  it('wait for caller when it is called in initializeFunction and when there are 2 waitForInitializeFunction used before waitForCall', async () => {
-    const caller = createCaller();
-    const realParams: StoreTesterParams<InitialState> = {
-      ...params,
-      errorTimoutMs: 10,
-      initializeFunction: () => {
-        caller();
-        return () => void 0;
-      },
-    };
-    const {error} = await createTest(realParams).run(function* () {
-      yield waitForInitializeFunction();
-      yield waitForInitializeFunction();
-      yield waitForCall(caller);
-    });
-
-    expect(error).toBeUndefined();
-    expect(caller.wasCalled()).toBeTruthy();
-  });
-
-  it('catch action in subscribe if waitForInitializeFunction is used', async () => {
+  it('catch action in subscribe if skipSyncActionDispatchesInInitializeFunction is true', async () => {
     let wasSubscribeCalled = false;
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
+      skipSyncActionDispatchesInInitializeFunction: true,
       initializeFunction: store => {
         store.subscribe(() => {
           wasSubscribeCalled = true;
@@ -436,36 +416,12 @@ describe('store tester with reducer should', function () {
       },
     };
     const {error, actions} = await createTest(realParams).run(function* () {
-      yield waitForInitializeFunction();
       yield dispatchAction(sliceActions.setOkStatus());
     });
 
     expect(wasSubscribeCalled).toBeTruthy();
     expect(error).toBeUndefined();
     expect(actions).toEqual([sliceActions.setOkStatus()]);
-  });
-
-  it('catch action in subscribe if waitForInitializeFunction is used twice', async () => {
-    let wasSubscribeCalled = false;
-    const realParams: StoreTesterParams<InitialState> = {
-      ...params,
-      errorTimoutMs: 10,
-      initializeFunction: store => {
-        store.subscribe(() => {
-          wasSubscribeCalled = true;
-        });
-        return () => void 0;
-      },
-    };
-    const {error, actions} = await createTest(realParams).run(function* () {
-      yield waitForInitializeFunction();
-      yield waitForInitializeFunction();
-      yield dispatchAction(sliceActions.setOkStatus());
-    });
-
-    expect(error).toBeUndefined();
-    expect(actions).toEqual([sliceActions.setOkStatus()]);
-    expect(wasSubscribeCalled).toBeTruthy();
   });
 
   it('call subscribe listener if action dispatched without waitForInitializeFunction', async () => {
@@ -508,23 +464,23 @@ describe('store tester with reducer should', function () {
     expect(actions).toEqual([sliceActions.setErrorStatus()]);
   });
 
-  it('not wait for action dispatched in initializeFunction if waitForInitializeFunction is used first', async () => {
+  it('not log and wait for action dispatched in initializeFunction if skipSyncActionDispatchesInInitializeFunction is true', async () => {
     const realParams: StoreTesterParams<InitialState> = {
       ...params,
       errorTimoutMs: 10,
+      skipSyncActionDispatchesInInitializeFunction: true,
       initializeFunction: store => {
         store.dispatch(sliceActions.setOkStatus());
         return () => void 0;
       },
     };
     const {actions, error} = await createTest(realParams).run(function* () {
-      yield waitForInitializeFunction();
       yield waitForAction(sliceActions.setOkStatus.type);
     });
 
     expect(error).toBeDefined();
     expect(error).toMatchSnapshot();
-    expect(actions).toEqual([sliceActions.setOkStatus()]);
+    expect(actions).toEqual([]);
   });
 
   it('log action when it is dispatched in resolved promise in initializeFunction when waitForSyncWorkToFinish is present at the end', async () => {

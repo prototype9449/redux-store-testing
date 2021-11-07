@@ -89,6 +89,23 @@ describe('store tester with saga and reducer should', function () {
     expect(error).toBeUndefined();
   });
 
+  it('catch action dispatched in saga if skipSyncActionDispatchesInInitializeFunction is before waitForAction', async () => {
+    const initStore = getInitStoreFunction(function* () {
+      yield put(sliceActions.setOkStatus());
+    });
+    const {actions, state, error} = await createTest({
+      ...testStoreParams,
+      skipSyncActionDispatchesInInitializeFunction: true,
+      initStore,
+    }).run(function* () {
+      yield waitForAction(sliceActions.setOkStatus.type);
+    });
+
+    expect(actions).toEqual([sliceActions.setOkStatus()]);
+    expect(state.status).toBe('Ok');
+    expect(error).toBeUndefined();
+  });
+
   it('catch action dispatched in saga when predicate is passed to waitForAction', async () => {
     const initStore = getInitStoreFunction(function* () {
       yield put(sliceActions.setOkStatus());

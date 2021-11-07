@@ -1,12 +1,18 @@
+const defaultSetTimeout = setTimeout;
+
 import {Action, Store} from 'redux';
 import {StoreAction, StoreActionType, StoreWaitForAction, StoreWaitForCaller, StoreWaitForStoreState} from './effects';
 import {waitForMsAndResolve} from './waitForMsAndResolve';
 import {waitForExternalCondition} from './waitForExternalCondition';
 import {printError} from './printError';
 import {DEFAULT_TIMEOUT_ERROR} from './constants';
-import {ActionListener} from "./actionLogger";
+import {ActionListener} from './actionLogger';
 
-const defaultSetTimeout = setTimeout;
+export enum InitFunctionCallState {
+  notCalled = 'notCalled',
+  inProcess = 'inProcess',
+  called = 'called',
+}
 
 export type StoreTesterParams<T> = {
   originalSetTimeout?: typeof setTimeout;
@@ -14,6 +20,7 @@ export type StoreTesterParams<T> = {
   initStore: (listener: ActionListener<T>) => Store<T>;
   errorTimoutMs?: number;
   throwOnTimeout?: boolean;
+  skipSyncActionDispatchesInInitializeFunction?: boolean;
 };
 
 export type StoreResult<T> = {actions: Action[]; state: T; error?: string};
@@ -26,9 +33,8 @@ export class StoreTester<T> {
   private readonly initializeFunction: (store: Store) => () => void;
   private resolveWhenActionCaught: (() => void) | undefined;
   private resolveWhenStateConditionMet: (() => void) | undefined;
-  private resolveWhenInitFunctionCalled: (() => void) | undefined;
   private loggedEffects: StoreAction<T>[] = [];
-  private initFunctionIsCalled = false;
+  private initFunctionState: InitFunctionCallState = InitFunctionCallState.notCalled;
 
   private finished = false;
   private generator: Generator<StoreAction<T>, void, StoreResult<T>> | undefined;
@@ -37,9 +43,9 @@ export class StoreTester<T> {
   private readonly originalSetTimeout;
   private readonly errorTimoutMs: number;
   private promiseToWaitForCall: Promise<void> | undefined;
-  private promiseToWaitForInitFunctionToBeCalled: Promise<void> | undefined;
   private isWaitingForPromise = false;
-  private throwOnTimeout: boolean;
+  private readonly throwOnTimeout: boolean;
+  private readonly skipSyncActionDispatchesInInitializeFunction: boolean;
 
   constructor({
     initStore,
@@ -47,30 +53,39 @@ export class StoreTester<T> {
     originalSetTimeout,
     throwOnTimeout = true,
     errorTimoutMs = DEFAULT_TIMEOUT_ERROR,
+    skipSyncActionDispatchesInInitializeFunction = false,
   }: StoreTesterParams<T>) {
     this.throwOnTimeout = throwOnTimeout;
     this.initStore = initStore;
     this.initializeFunction = initializeFunction;
     this.errorTimoutMs = errorTimoutMs;
     this.originalSetTimeout = originalSetTimeout ?? defaultSetTimeout;
+    this.skipSyncActionDispatchesInInitializeFunction = skipSyncActionDispatchesInInitializeFunction;
   }
+
+  private shouldWaitForInitialize = () => {
+    return this.skipSyncActionDispatchesInInitializeFunction && this.initFunctionState === InitFunctionCallState.inProcess;
+  };
 
   private listener = (action: Action, state: T): void => {
     if (this.finished) {
       return;
     }
 
-    this.loggedActions.push(action);
     this.currentState = state;
+    if (this.shouldWaitForInitialize()) {
+      return;
+    }
+    this.loggedActions.push(action);
 
-    if (this.promiseToWaitForCall || this.isWaitingForPromise || this.promiseToWaitForInitFunctionToBeCalled) {
+    if (this.promiseToWaitForCall || this.isWaitingForPromise) {
       return;
     }
     this.processCurrentStateAndAction(action);
   };
 
   private processCurrentStateAndAction(action?: Action): void {
-    if (!this.generator) {
+    if (!this.generator || this.shouldWaitForInitialize() || this.promiseToWaitForCall || this.isWaitingForPromise) {
       return;
     }
     const isJustDispatchedAction = action ? this.justDispatchedAction === action : false;
@@ -117,11 +132,6 @@ export class StoreTester<T> {
       this.waitForCall(action);
       return;
     }
-
-    if (this.nextAction?.type === StoreActionType.waitForInitializeFunction && this.initFunctionIsCalled) {
-      this.nextAction = undefined;
-      this.processCurrentStateAndAction();
-    }
   }
 
   private processNextAction = (
@@ -150,13 +160,6 @@ export class StoreTester<T> {
     });
     this.processCurrentStateAndAction();
     return promise;
-  };
-
-  private waitForInitFunctionToBeCalled = (): Promise<void> => {
-    this.promiseToWaitForInitFunctionToBeCalled = new Promise(res => {
-      this.resolveWhenInitFunctionCalled = res;
-    });
-    return this.promiseToWaitForInitFunctionToBeCalled;
   };
 
   private async waitForCall(action: StoreWaitForCaller) {
@@ -243,13 +246,6 @@ export class StoreTester<T> {
           this.isWaitingForPromise = false;
           break;
         }
-        case StoreActionType.waitForInitializeFunction: {
-          if (this.initFunctionIsCalled) {
-            break;
-          }
-          await this.waitForInitFunctionToBeCalled();
-          break;
-        }
         case StoreActionType.waitForSyncWorkToFinish: {
           this.isWaitingForPromise = true;
           await waitForMsAndResolve({ms: 0});
@@ -264,12 +260,10 @@ export class StoreTester<T> {
     this.processCurrentStateAndAction();
     this.store = this.initStore(this.listener);
     this.currentState = this.currentState ?? this.store.getState();
+    this.initFunctionState = InitFunctionCallState.inProcess;
     const destruct = this.initializeFunction(this.store);
-    this.initFunctionIsCalled = true;
-    if (this.resolveWhenInitFunctionCalled) {
-      this.resolveWhenInitFunctionCalled();
-      this.promiseToWaitForInitFunctionToBeCalled = undefined;
-    }
+    this.initFunctionState = InitFunctionCallState.called;
+    this.processCurrentStateAndAction();
     const result: string | void = await Promise.race([this.main(), this.timeOut()]);
     destruct();
     if (result && this.throwOnTimeout) {
