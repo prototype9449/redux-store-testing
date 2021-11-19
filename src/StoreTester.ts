@@ -63,9 +63,8 @@ export class StoreTester<T> {
     this.skipSyncActionDispatchesInInitializeFunction = skipSyncActionDispatchesInInitializeFunction;
   }
 
-  private shouldWaitForInitialize = () => {
-    return this.skipSyncActionDispatchesInInitializeFunction && this.initFunctionState === InitFunctionCallState.inProcess;
-  };
+  private shouldWaitForInitialize = () =>
+    this.skipSyncActionDispatchesInInitializeFunction && this.initFunctionState === InitFunctionCallState.inProcess;
 
   private listener = (action: Action, state: T): void => {
     if (this.finished) {
@@ -95,14 +94,7 @@ export class StoreTester<T> {
     if (!this.nextAction) {
       return;
     }
-    if (
-      action &&
-      !isJustDispatchedAction &&
-      this.nextAction.type === StoreActionType.waitForActionType &&
-      ((typeof this.nextAction.actionOrPredicate === 'string' && action.type === this.nextAction.actionOrPredicate) ||
-        (typeof this.nextAction.actionOrPredicate === 'function' &&
-          this.nextAction.actionOrPredicate(action, [...this.loggedActions])))
-    ) {
+    if (action && !isJustDispatchedAction && doesWaitForActionMatch<T>(action, this.nextAction, this.loggedActions)) {
       this.nextAction = undefined;
       this.processCurrentStateAndAction();
       if (this.resolveWhenActionCaught) {
@@ -271,4 +263,13 @@ export class StoreTester<T> {
     }
     return Promise.resolve({state: this.currentState!, actions: this.loggedActions, error: result ?? undefined});
   }
+}
+
+function doesWaitForActionMatch<T>(action: Action, waitForAction: StoreAction<T>, loggedActions: Action[]): boolean {
+  return (
+    waitForAction.type === StoreActionType.waitForActionType &&
+    ((typeof waitForAction.actionOrPredicate === 'string' && action.type === waitForAction.actionOrPredicate) ||
+      (typeof waitForAction.actionOrPredicate === 'function' &&
+        waitForAction.actionOrPredicate(action, [...loggedActions])))
+  );
 }

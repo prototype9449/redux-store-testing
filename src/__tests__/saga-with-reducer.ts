@@ -299,7 +299,7 @@ describe('store tester with saga and reducer should', function () {
   });
 
   it('wait for call', async () => {
-    const caller = createCaller();
+    const caller = createCaller('call 1');
     const mocked = jest.fn().mockImplementation(() => {
       caller();
       return 'fsdf';
@@ -357,7 +357,7 @@ describe('store tester with saga and reducer should', function () {
   });
 
   it('wait for call if it is called on initialization', async () => {
-    const caller = createCaller();
+    const caller = createCaller('call 1');
     const mocked = jest.fn().mockImplementation(() => {
       caller();
       return 'fsdf';
@@ -378,8 +378,8 @@ describe('store tester with saga and reducer should', function () {
   });
 
   it('wait for 2 callers in sequence if they are called on initialization', async () => {
-    const caller1 = createCaller();
-    const caller2 = createCaller();
+    const caller1 = createCaller('call 1');
+    const caller2 = createCaller('call 2');
     const mocked = jest.fn().mockImplementation(() => {
       caller1();
       caller2();
@@ -505,7 +505,7 @@ describe('store tester with saga and reducer should', function () {
       return 'fsdf';
     });
     const initStore = getInitStoreFunction(function* () {
-      yield delay(1);
+      yield delay(10);
       yield call(mocked, 'fsdf');
       yield put(sliceActions.setOkStatus());
     });

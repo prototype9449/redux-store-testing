@@ -15,7 +15,7 @@ export type StoreWaitForAction = {
   actionOrPredicate: string | StoreActionPredicate;
 };
 
-export type StorewaitForMicrotasksToFinish = {
+export type StoreWaitForMicrotasksToFinish = {
   type: StoreActionType.waitForMicrotasksToFinish;
 };
 
@@ -54,7 +54,7 @@ export type StoreAction<T> =
   | StoreWaitForPromise
   | StoreWaitForCaller
   | StoreWaitFor
-  | StorewaitForMicrotasksToFinish
+  | StoreWaitForMicrotasksToFinish
   | StoreWaitForStoreState<T>;
 
 export enum StoreActionType {
@@ -76,7 +76,7 @@ export const waitForMs = (ms: number, callback?: () => void): StoreWaitForMs => 
   callback,
 });
 
-export const waitForMicrotasksToFinish = (): StorewaitForMicrotasksToFinish => ({
+export const waitForMicrotasksToFinish = (): StoreWaitForMicrotasksToFinish => ({
   type: StoreActionType.waitForMicrotasksToFinish,
 });
 
