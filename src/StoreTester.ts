@@ -240,7 +240,7 @@ export class StoreTester<T> {
         }
         case StoreActionType.waitForMicrotasksToFinish: {
           this.isWaitingForPromise = true;
-          await waitForMsAndResolve({ms: 0});
+          await waitForMsAndResolve( {timeOut: this.originalSetTimeout, ms: 0});
           this.isWaitingForPromise = false;
         }
       }
