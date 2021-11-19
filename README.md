@@ -98,7 +98,7 @@ You can wait for action to be dispatched
 
 ```typescript
 
-const {state} = await testStore({initStore}, function*() {
+const {state} = await createTest({initStore}).run(function*() {
    yield waitForAction(actions.addWish.type);
   
    // or you can wait for custom condition
@@ -112,7 +112,7 @@ const {state} = await testStore({initStore}, function*() {
 You can wait for state to be in needed shape
 
 ```typescript
-const {state} = await testStore({initStore}, function*() {
+const {state} = await createTest({initStore}).run(function*() {
    yield waitForState(state => selectors.isPersonAtHome(state, 'Anna');
    
   // or any condition by state and actions 
@@ -132,7 +132,7 @@ const promise = new Promise((resolve) => {
     fetchWeatcher().then(result => resolve(result));
 })
 
-const {state} = await testStore({initStore}, function*() {
+const {state} = await createTest({initStore}).run(function*() {
     yield waitForPromise(promise);
 });
 ```
@@ -141,7 +141,7 @@ const {state} = await testStore({initStore}, function*() {
 You can wait for timeout in ms
 
 ```typescript
- await testStore({initStore}, function* () {
+ await createTest({initStore}).run(function* () {
     yield waitForMs(10);
     yield dispatchAction(goToGym());
 });
@@ -154,7 +154,7 @@ import {dispatchAction, waitForMs, runAsyncEffect} from 'redux-store-testing'
 
 jest.useFakeTimers();
 
-await testStore({initStore}, function* () {
+await createTest({initStore}).run(function* () {
     // this will be run in async way, right after all microtasks
     runAsyncEffect(() => {
         jest.advanceTimersByTime(10)
@@ -181,7 +181,7 @@ const mockedFetchOptions = fetchWeather.mockImplementation(() => {
 })
 //fetchWeather is called inside saga or react component
 
-const {state} = await testStore({initStore}, function*() {
+const {state} = await createTest({initStore}).run(function*() {
     yield waitForCall(fetchWeatherCaller);
     // or you can wait for function to be called several times 
     yield waitForCall(fetchWeatherCaller, {times: 2});
@@ -192,7 +192,7 @@ const {state} = await testStore({initStore}, function*() {
 You can wait for all microtasks to be finished
 
 ```typescript
-const {state} = await testStore({initStore}, function*() {
+const {state} = await createTest({initStore}).run(function*() {
     yield dispatchAction(actions.goToGym());
     yield waitForAction(actions.finishTraining)
     //let saga or any other sync code to finish
@@ -206,7 +206,7 @@ const {state} = await testStore({initStore}, function*() {
 You can wait for any external condition  
 
 ```typescript
-const {state} = await testStore({initStore}, function*() {
+const {state} = await createTest({initStore}).run(function*() {
     yield waitFor(() => mock.calls.length > 0);
 
     yield waitFor(() => getCurrentWeather() === 'sunny');
