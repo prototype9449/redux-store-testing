@@ -51,6 +51,10 @@ describe('store tester with reducer should', function () {
 
   const params = {initStore, errorTimoutMs: 10, throwOnTimeout: false};
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('catch 1 action and produce correct state', async () => {
     const {actions, state, error} = await createTest(params).run(function* () {
       const {
@@ -628,5 +632,14 @@ describe('store tester with reducer should', function () {
 
     expect(error).toBeDefined();
     expect(error).toMatchSnapshot();
+  });
+
+  it('should finish the test if fake timers are used adn waitForMicrotasksToFinish is present', async () => {
+    jest.useFakeTimers();
+    const {error} = await createTest(params).run(function* () {
+      yield waitForMicrotasksToFinish();
+    });
+
+    expect(error).not.toBeDefined();
   });
 });
